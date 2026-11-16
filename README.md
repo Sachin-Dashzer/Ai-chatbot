@@ -1,0 +1,155 @@
+# Ankit Desk – WhatsApp task bot (Next.js + MongoDB + Tailwind, JavaScript)
+
+Ankit gives tasks by WhatsApp voice note or text. The team gets them on WhatsApp, replies once a day, and the bot follows up automatically. Live web boards show the status of every business.
+
+**Stack:** Next.js 15 (App Router, JavaScript) · MongoDB (Atlas) · Tailwind CSS · Node 20 · node-cron · WhatsApp Cloud API · OpenAI (Whisper for voice, GPT for understanding messages).
+
+`npm test` runs 8 end-to-end scenarios with simulated WhatsApp and AI. All pass.
+
+> **It is a WhatsApp chatbot.** WhatsApp itself is the chat screen, so there is no chat page in this code. Meta sends every message to `POST /api/webhook`; the bot replies through the WhatsApp Cloud API. Until the webhook is connected to Meta you will only see the web boards.
+
+---
+
+## What it does
+
+| When | What happens |
+|---|---|
+| Any time | Ankit sends a voice note or text. AI turns it into tasks (several per message are fine) and confirms with task numbers |
+| Instantly | **P1** tasks ("P1", "urgent", "aaj", "abhi") go to the person straight away |
+| 12:00 PM, 4:00 PM | **P2** tasks (default) go as ONE combined message per person |
+| 6:00 PM | ONE check-in per person listing all their open tasks. They reply once, by text or voice: "1 done, 2 working, 3 stuck – need sir's approval" |
+| 7:00 PM | One reminder, only to people who haven't replied |
+| 8:30 AM | Ankit's brief: yesterday's score, pending on Ankit, P1 not done, each business, who didn't reply, notes |
+
+Messages go out only when there is something to deliver. Unfinished tasks carry forward.
+
+**Every team message is saved word for word** (voice notes as text), and every status reply is kept as a remark on its task.
+
+### Ankit's commands (sent to the bot)
+
+| Command | Effect |
+|---|---|
+| `help` · `brief` · `list` | Commands · summary now · all open tasks |
+| `done 12` · `cancel 12` · `reopen 12` | Close / cancel / reopen |
+| `p1 12` · `p2 12` | Change priority |
+| `move 12 EPC` · `assign 12 Narendra` | Fix business / person |
+| `Himanshu 16 – approved` | Reply on a task (forwarded; a task stuck on Ankit goes back to working) |
+| `msgs Himanshu` · `msgs` | Last messages word for word (one person / whole team) |
+| `reminder off Narendra` · `checkin Narendra mon thu` | Per-person settings |
+| `pause Narendra till 25 nov` · `resume Narendra` | Leave mode (only P1 gets through) |
+| `settings` · `boards` · `newlink EPC` | Show settings · board links · replace a leaked link |
+
+### Boards
+
+| Board | Who | What |
+|---|---|---|
+| One per business (EPC, Ryan, PHMG, Minenii, HoldPoint, Pulkit) | That team | View only. Needs attention first, tasks by person, done this week. Ankit's own tasks never shown |
+| Master | Ankit only | Tabs: Needs attention · Mine · **Messages** · each business. Tick to close, P1/P2, remark history per task, CSV backup |
+
+---
+
+## Project layout
+
+```
+app/api/webhook/route.js        WhatsApp webhook (GET verify, POST messages)
+app/api/admin/run/[job]/route.js  trigger batch|checkin|nudge|brief manually (testing)
+app/api/health/route.js         uptime check
+app/board/[key]/page.js         boards (Tailwind)        components/  Board.js, TaskCard.js, AutoRefresh.js
+app/board/[key]/act/route.js    master board tick / P1 / P2
+app/board/[key]/export/route.js CSV backup
+instrumentation.js              starts the daily scheduler when the server boots
+lib/bot.js                      all behaviour (tasks, replies, check-in, nudge, brief, commands)
+lib/ai.js  lib/whatsapp.js      AI and WhatsApp clients
+lib/boards.js lib/settings.js   board data · per-person settings
+lib/store/mongo.js  memory.js   MongoDB store · in-memory store (tests/demo)
+lib/scheduler.js lib/runtime.js lib/time.js lib/config.js lib/demo.js
+people.yaml  templates.json  scripts/create-templates.js  tests/
+```
+
+---
+
+## See it running in 2 minutes (no WhatsApp, no database)
+
+```bash
+npm install
+npm run build
+DEMO=1 STORE=memory npm start
+```
+
+The console prints board links (master + each business) with sample tasks. Open them in a browser.
+
+---
+
+## Setup (about 4–5 hours + Meta review time)
+
+### 1. Meta / WhatsApp
+1. Bot number must **not** be on the WhatsApp app (Ankit's second number has never been – nothing to delete).
+2. business.facebook.com → business portfolio in Ankit's or Minenii's name. **Business verification is not needed** (unverified accounts can message 250 people a day).
+3. developers.facebook.com → Create App (type Business) → add WhatsApp.
+4. **Test first, today:** WhatsApp → API Setup gives a free **test number + temporary token**. Add Ankit's number as a recipient, use these in `.env`, connect the webhook (step 6) and test end to end. Then register the real number.
+5. Real number: API Setup → Add phone number → display name e.g. "Ankit Choudhary" → verify by SMS.
+6. Business Settings → System users → Admin → assign the app + WhatsApp account → **Generate token** (`whatsapp_business_messaging`, `whatsapp_business_management`) = permanent `WA_TOKEN`.
+7. Note Phone number ID, WhatsApp Business Account ID, App Secret. Add a payment method in WhatsApp Manager.
+
+### 2. API keys
+- OpenAI (platform.openai.com). Buy $5 credit; set a $10 monthly limit. This is separate from the ChatGPT app subscription.
+
+### 3. Database
+- MongoDB Atlas → free M0 cluster (Mumbai region) → database user → Network Access: allow `0.0.0.0/0` (or Railway's IPs) → copy the connection string into `MONGODB_URI`.
+- Turn on Atlas backups if available on your tier; Ankit also downloads the CSV from the master board weekly.
+
+### 4. Config
+- `cp .env.example .env` and fill every value.
+- `people.yaml`: team numbers are filled. **Add Ankit's main WhatsApp number as `owner`** (the number he sends commands from, not the bot number).
+
+### 5. Templates
+```bash
+WA_TOKEN=... WA_WABA_ID=... npm run templates
+```
+Both must be **Active** in WhatsApp Manager: `ankit_desk_update` and `urgent_task`. If one is rejected, reword it in `templates.json` (keep the name) and resubmit.
+
+### 6. Hosting on Railway (~₹450/month)
+- Push to a **private** GitHub repo (people.yaml has phone numbers).
+- Railway → New project from the repo (it uses the Dockerfile) → Variables: paste all `.env` values → Generate domain → set `BASE_URL` to it.
+- **Do not use Vercel or any serverless host**: the bot needs an always-on server for the daily schedule and for background processing of voice notes.
+- Meta → WhatsApp → Configuration → Callback URL `BASE_URL/api/webhook`, verify token = `WA_VERIFY_TOKEN`, subscribe to **messages**.
+- UptimeRobot (free): monitor `BASE_URL/api/health` every 5 minutes, email alerts.
+
+---
+
+## Acceptance tests (with Ankit, ~45 min)
+
+Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{batch|checkin|nudge|brief}?token=WA_VERIFY_TOKEN"`
+
+- [ ] `/api/health` ok; Ankit sends `help` → command list
+- [ ] Voice note with 3 tasks (1 P1) → "Assigned (3)"; P1 arrives at once; nothing else yet
+- [ ] `batch` → each person ONE combined message
+- [ ] `checkin` → each person ONE list; voice reply → "Updated" with each task
+- [ ] `nudge` → only non-repliers
+- [ ] `brief` → stuck item under "Pending on you"; Ankit replies "Himanshu 3 – approved" → Himanshu receives it
+- [ ] `msgs Himanshu` → his messages word for word; master board → Messages tab shows them
+- [ ] `boards` → links; team board view-only; master tick and P1/P2 work; CSV downloads
+- [ ] `pause Pulkit today` → P2 held, P1 still delivered; `resume Pulkit`
+- [ ] Someone who hasn't messaged for 24h gets "tap View"; tapping View shows the full text
+- [ ] Before go-live: drop the `ankit_desk` database in Atlas (clears test data)
+
+---
+
+## Problems we expect, and the fixes
+
+| Problem | Fix |
+|---|---|
+| Display name / template rejected | Use the owner's name; reword the template, keep its name |
+| Webhook won't verify | Token must match `WA_VERIFY_TOKEN`; URL must be https and end in `/api/webhook` |
+| Bot silent | Check Railway logs; sender's number must be in people.yaml (unknown numbers are ignored) |
+| Wrong business / person | `move 12 Ryan` / `assign 12 Narendra` |
+| Same task twice | Bot replies "Already open" |
+| Ticked by mistake | `reopen 12` |
+| Board link leaked | `newlink EPC` |
+| Someone stops replying | "No update yesterday" in brief; 7 PM reminder |
+| Server down | UptimeRobot email; missing 8:30 brief |
+| Bill surprise | $10 limits on both AI accounts |
+| Bot SIM lapses | Keep it recharged; losing it can lose the WhatsApp number |
+| Adding a person | Add to people.yaml, push (Railway redeploys), they send "Hi" |
+
+**WhatsApp 24-hour rule:** free-form messages only reach people who messaged the bot in the last 24 hours. The bot handles it: outside the window it sends the short `ankit_desk_update` template ("tap View") and releases the full text on tap; P1 uses `urgent_task` so the content arrives at once. Everyone sends "Hi" once before go-live.

@@ -1,0 +1,54 @@
+# Phone numbers: country code + number, digits only, no "+" or spaces. e.g. 919812345678
+# The owner must be named "Ankit".
+# Optional per person: reminder: false  (no 7 PM reminder)
+#                      checkin_days: [mon, thu]  (default: every day)
+# These can also be changed later from WhatsApp, e.g. "reminder off Narendra".
+
+owner:
+  name: Ankit
+  phone: "91XXXXXXXXXX"   # <-- Ankit's MAIN WhatsApp number (the one he gives commands from), NOT the bot number
+
+businesses: [HoldPoint, Pulkit, Ryan, EPC, PHMG, Minenii, Personal]
+
+people:
+  - name: Himanshu
+    phone: "917417290307"
+    business: HoldPoint
+
+  - name: Pulkit
+    phone: "918077158402"
+    business: Pulkit
+
+  - name: Manish
+    phone: "919555067072"
+    business: Ryan
+    aliases: [CA Manish, Manish ji]
+
+  - name: Shalu
+    phone: "918766336592"
+    business: Ryan
+
+  - name: Rajnish
+    phone: "919015595502"
+    business: EPC
+    aliases: [Rajneesh, Rajnesh]
+    checkin_days: [mon, thu]
+
+  - name: Narendra
+    phone: "918445431564"
+    business: EPC
+    checkin_days: [mon, thu]
+
+  - name: Praveen
+    phone: "917289846324"
+    business: PHMG
+    aliases: [CA Praveen, Parveen]
+
+  - name: Piyush
+    phone: "919654123003"
+    business: PHMG
+    aliases: [CA Piyush, Piyush ji]
+
+  - name: Sachin
+    phone: "918287037611"
+    business: Minenii

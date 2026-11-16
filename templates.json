@@ -1,0 +1,30 @@
+[
+  {
+    "name": "ankit_desk_update",
+    "category": "UTILITY",
+    "language": "en",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hello {{1}}, you have {{2}} from Ankit Desk. Tap View to see it.",
+        "example": {"body_text": [["Himanshu", "3 new tasks"]]}
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [{"type": "QUICK_REPLY", "text": "View"}]
+      }
+    ]
+  },
+  {
+    "name": "urgent_task",
+    "category": "UTILITY",
+    "language": "en",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "P1 (urgent) task from Ankit\n\nTask #{{1}}: {{2}}\nBusiness: {{3}}\n\nPlease update its status in today's 6 PM check-in.",
+        "example": {"body_text": [["14", "Send Galaxy Royal final invoice", "HoldPoint"]]}
+      }
+    ]
+  }
+]
