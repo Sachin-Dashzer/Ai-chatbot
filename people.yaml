@@ -6,7 +6,7 @@
 
 owner:
   name: Ankit
-  phone: "91XXXXXXXXXX"   # <-- Ankit's MAIN WhatsApp number (the one he gives commands from), NOT the bot number
+  phone: "919718115480"   # <-- Ankit's MAIN WhatsApp number (the one he gives commands from), NOT the bot number
 
 businesses: [HoldPoint, Pulkit, Ryan, EPC, PHMG, Minenii, Personal]
 
