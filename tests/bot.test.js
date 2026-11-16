@@ -285,3 +285,40 @@ test("helpers: JSON extraction and cron day mapping", () => {
   assert.equal(cronDays("mon-sat"), "1-6");
   assert.equal(cronDays("mon,thu"), "1,4");
 });
+
+test("cron endpoint: runs a due slot once, ignores off-window, off-day, bad token, live node-cron", async () => {
+  const clock = makeClock(); clock.at(16, 11, 30); // Mon 16 Nov 2026
+  const { bot, wa } = setup(clock);
+  globalThis.__ankitDesk = bot;            // the route reads the shared bot off globalThis
+  delete globalThis.__ankitDeskCron;
+  const { GET } = await import("../app/api/cron/route.js");
+  const hit = async () => (await GET(new Request(`http://x/api/cron?token=${bot.s.waVerifyToken}`))).json();
+
+  await bot.handleMessage(text(OWNER, "Pulkit – last 7 days Amazon ad spend report"));
+  assert.equal(wa.to(PULKIT).length, 0);   // P2: nothing until the batch slot
+
+  assert.equal((await GET(new Request("http://x/api/cron?token=wrong"))).status, 403);
+
+  clock.at(16, 11, 59);
+  assert.deepEqual((await hit()).ran, []); // 12:00 has not arrived
+
+  clock.at(16, 12, 5);                     // a cron 5 minutes late still catches the slot
+  assert.deepEqual((await hit()).ran, ["batch@12:00"]);
+  assert.equal(wa.to(PULKIT).length, 1);
+
+  clock.at(16, 12, 20);                    // a retry must not send the same batch twice
+  assert.deepEqual((await hit()).ran, []);
+  assert.equal(wa.to(PULKIT).length, 1);
+
+  clock.at(16, 14);                        // more than an hour late: the slot is gone, not resent
+  assert.deepEqual((await hit()).ran, []);
+
+  clock.at(22, 12, 5);                     // Sunday, WORK_DAYS is mon-sat
+  assert.match((await hit()).note, /not a work day/);
+
+  globalThis.__ankitDeskCron = true;       // always-on host: node-cron owns the schedule
+  clock.at(17, 12, 5);
+  assert.match((await hit()).note, /in-process scheduler/);
+  delete globalThis.__ankitDeskCron;
+  delete globalThis.__ankitDesk;
+});

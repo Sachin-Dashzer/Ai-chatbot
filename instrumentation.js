@@ -8,7 +8,7 @@ export async function register() {
     // There, run the jobs from the host's own scheduler instead:
     //   POST /api/admin/run/{batch|checkin|nudge|brief}?token=WA_VERIFY_TOKEN
     if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NO_CRON === "1") {
-      console.warn("[ankit-desk] serverless host detected – daily scheduler is off, trigger /api/admin/run/<job> on a schedule.");
+      console.warn("[ankit-desk] serverless host detected – node-cron is off. Point an external cron at GET /api/cron?token=WA_VERIFY_TOKEN every 5 minutes.");
       return;
     }
     // A scheduler that cannot start must never take the web boards down with it.

@@ -53,6 +53,7 @@ Messages go out only when there is something to deliver. Unfinished tasks carry 
 ```
 app/api/webhook/route.js        WhatsApp webhook (GET verify, POST messages)
 app/api/admin/run/[job]/route.js  trigger batch|checkin|nudge|brief manually (testing)
+app/api/cron/route.js           one URL for the whole schedule, for serverless hosts
 app/api/health/route.js         uptime check
 app/board/[key]/page.js         boards (Tailwind)        components/  Board.js, TaskCard.js, AutoRefresh.js
 app/board/[key]/act/route.js    master board tick / P1 / P2
@@ -111,9 +112,17 @@ Both must be **Active** in WhatsApp Manager: `ankit_desk_update` and `urgent_tas
 ### 6. Hosting on Railway (~₹450/month)
 - Push to a **private** GitHub repo (people.yaml has phone numbers).
 - Railway → New project from the repo (it uses the Dockerfile) → Variables: paste all `.env` values → Generate domain → set `BASE_URL` to it.
-- **Do not use Vercel or any serverless host**: the bot needs an always-on server for the daily schedule and for background processing of voice notes.
+- **Railway (or any always-on server) is the simple path**: node-cron runs the daily schedule in-process, nothing else to set up.
 - Meta → WhatsApp → Configuration → Callback URL `BASE_URL/api/webhook`, verify token = `WA_VERIFY_TOKEN`, subscribe to **messages**.
 - UptimeRobot (free): monitor `BASE_URL/api/health` every 5 minutes, email alerts.
+
+### 6b. On Vercel or another serverless host
+A serverless host freezes the process between requests, so node-cron can never fire; `instrumentation.js` detects the host and switches itself off. Two things are then needed:
+
+- **The schedule.** Point any external cron (cron-job.org, UptimeRobot, GitHub Actions) at `GET BASE_URL/api/cron?token=WA_VERIFY_TOKEN` **every 5 minutes**. One URL covers all five slots: it reads `BATCH_TIMES`, `CHECKIN_TIME`, `NUDGE_TIME`, `BRIEF_TIME`, `WORK_DAYS` and `TIMEZONE`, runs whatever is due, and claims each slot in the database so a retry can never send the same message twice. A slot is still picked up up to 59 minutes late. Vercel's own `vercel.json` crons work too (set `CRON_SECRET`), but Hobby allows only 2 cron jobs at once-a-day granularity, which is not enough for five slots — use an external cron there.
+- **`BASE_URL`.** Set it in the host's variables. On Vercel it falls back to `VERCEL_PROJECT_PRODUCTION_URL` if unset, so board links keep working, but a deployment-specific URL changes on every deploy — set it explicitly to the production domain.
+
+Voice notes are transcribed after the webhook replies to Meta, which on a frozen process means the work must be kept alive: the webhook uses `after()` and `maxDuration = 60`. Still expect a few seconds of cold start on the first message after an idle spell.
 
 ---
 
