@@ -1,74 +1,57 @@
-// Home: the live dashboard entry point – board links, today's numbers, and what the bot does.
+// Today: the screen Ankit opens first. It answers one question — is anything
+// waiting on me, and which board do I need? Everything on it is live data.
 import { getBot } from "../lib/runtime.js";
 import { HELP } from "../lib/bot.js";
 import { MASTER } from "../lib/boards.js";
-import { Stats, Pill } from "../components/Board";
+import Shell, { PageHead } from "../components/Shell";
+import TaskCard from "../components/TaskCard";
+import CopyLink from "../components/CopyLink";
+import { Icon, Stats, Panel, Empty, DayStrip, DayList } from "../components/ui";
 
 export const dynamic = "force-dynamic";
 
-// HELP is the single source of truth for the WhatsApp commands; *word* means bold.
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+const toMin = (hhmm) => {
+  const [h, m] = String(hhmm).split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+
+// *word* in HELP means bold on WhatsApp; here it is the command itself.
 function Rich({ line }) {
   return line.split(/\*([^*]+)\*/).map((part, i) =>
-    i % 2 ? <strong key={i} className="font-semibold text-stone-900 dark:text-stone-100">{part}</strong> : part);
+    i % 2 ? <code key={i} className="font-mono text-[13px] font-medium text-ink">{part}</code> /* taste-skill-ignore: real commands, in a code element */ : part);
 }
 
-function HelpBlock() {
+// HELP is the single source of truth for what the bot understands.
+function helpBlocks() {
   const blocks = [];
   for (const line of HELP.split("\n").slice(1)) {
     if (!line) { blocks.push({ head: null, items: [] }); continue; }
     if (!blocks.length) blocks.push({ head: null, items: [] });
     const b = blocks[blocks.length - 1];
-    // short "Commands:" style lines become the block heading; a full sentence stays body text
-    if (!b.items.length && line.length <= 30 && (line.endsWith(":") || /^\*[^*]+\*$/.test(line))) b.head = line.replace(/[*:]/g, "");
-    else b.items.push(line);
+    if (!b.items.length && line.length <= 30 && (line.endsWith(":") || /^\*[^*]+\*$/.test(line))) {
+      b.head = line.replace(/[*:]/g, "");
+    } else b.items.push(line);
   }
-  return (
-    <div className="space-y-4">
-      {blocks.filter((b) => b.items.length).map((b, i) => (
-        <div key={i}>
-          {b.head && <h3 className="mb-1.5 text-[13px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{b.head}</h3>}
-          <ul className="space-y-1">
-            {b.items.map((it, j) => (
-              <li key={j} className="text-[14px] leading-snug text-stone-600 dark:text-stone-300">
-                <Rich line={it.replace(/^• /, "")} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Row({ href, title, sub, right }) {
-  return (
-    <a href={href} className="flex items-center gap-3 px-3.5 py-3 transition-colors duration-150 ease-[cubic-bezier(0.2,0,0,1)] hover:bg-stone-50 dark:hover:bg-stone-700/40">
-      <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-medium">{title}</span>
-        <span className="mt-0.5 block truncate text-[13px] text-stone-500 dark:text-stone-400">{sub}</span>
-      </span>
-      {right}
-      <span aria-hidden className="text-stone-400 dark:text-stone-500">&rsaquo;</span>
-    </a>
-  );
-}
-
-function Count({ n, label, tone }) {
-  if (!n) return null;
-  return (
-    <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-medium ${tone === "red"
-      ? "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-200"
-      : "bg-stone-100 text-stone-600 dark:bg-stone-700 dark:text-stone-300"}`}>{n} {label}</span>
-  );
+  return blocks.filter((b) => b.items.length);
 }
 
 export default async function Home() {
   const bot = getBot();
-  await globalThis.__ankitDeskDemo; // demo seed, if it is still running
+  await globalThis.__ankitDeskDemo; // the demo seed, if it is still running
+  const s = bot.s;
   const owner = bot.d.owner.name;
+
   const open = await bot.openTasks();
   const stats = bot.boards.stats(open, await bot.boards.doneWeek());
   const masterKey = await bot.boards.keyFor(MASTER);
+
+  const pending = await bot.pendingOnMe();
+  // Cards for everything waiting, so "the oldest" is the real oldest; the rail
+  // then shows the first few and links out for the rest.
+  const pendingCards = await bot.boards.cards(pending);
+  const railCards = pendingCards.slice(0, 4);
+  const oldest = Math.max(0, ...pendingCards.map((c) => c.days));
 
   const teams = [];
   for (const b of bot.boards.teamBusinesses()) {
@@ -82,82 +65,186 @@ export default async function Home() {
     });
   }
 
-  const s = bot.s;
-  const schedule = [
-    [s.briefTime, `Your brief: yesterday's closures, what is stuck, today's P1s`],
-    [s.batchTimes.split(",").join(" & "), "Held P2 tasks go out, one message per person"],
-    [s.checkinTime, "Check-in: each person gets their full open list"],
-    [s.nudgeTime, "One reminder to anyone who has not replied"],
-    ["any time", "P1 tasks are delivered the moment you send them"],
+  const nowIso = bot.nowIso();
+  const nowMin = toMin(nowIso.slice(11, 16));
+  const batch = s.batchTimes.split(",").map((t) => t.trim()).filter(Boolean);
+  const slots = [
+    { time: s.briefTime, what: "your brief" },
+    ...batch.map((t) => ({ time: t, what: "P2 tasks go out" })),
+    { time: s.checkinTime, what: "check-in" },
+    { time: s.nudgeTime, what: "reminder" },
+  ].map((x) => ({ ...x, min: toMin(x.time) })).sort((a, b) => a.min - b.min);
+
+  const next = slots.find((x) => x.min > nowMin);
+
+  const nav = [
+    { items: [
+      { href: "/", label: "Today", icon: "home", active: true },
+      { href: `/board/${masterKey}?tab=attention`, label: "Needs attention", icon: "flag",
+        count: stats.attention, countTitle: "tasks stuck or overdue" },
+      { href: `/board/${masterKey}?tab=mine`, label: "Mine", icon: "user",
+        count: open.filter((t) => t.owner === owner).length, countTitle: "of your own tasks are open" },
+      { href: `/board/${masterKey}?tab=messages`, label: "Messages", icon: "inbox" },
+    ] },
+    // The same count the master board's own navigation shows: every task in
+    // that business, Ankit's included. The table below counts what the team
+    // sees on its own board, which never includes his.
+    { label: "Businesses", items: teams.map((t) => ({
+      href: `/board/${masterKey}?tab=${t.name.toLowerCase()}`,
+      label: t.name,
+      count: open.filter((x) => x.business === t.name && bot.boards.needsAttention(x)).length,
+      countTitle: `tasks needing attention in ${t.name}`,
+    })) },
   ];
 
+  const finding = pending.length
+    ? `${plural(pending.length, "task")} waiting on you${oldest >= 3 ? `, the oldest open ${plural(oldest, "day")}` : ""}.`
+    : "Nothing is waiting on you.";
+
   return (
-    <main className="mx-auto max-w-2xl px-3.5 pb-16 pt-6">
-      <header className="mb-5">
-        <h1 className="text-[26px] font-semibold tracking-[-0.02em]">Ankit Desk</h1>
-        <p className="mt-1 text-[13px] text-stone-500 dark:text-stone-400">
-          Running · {s.timezone} · {bot.boards.updated()}
-          {s.store === "memory" && <> · <span className="text-amber-700 dark:text-amber-400">in-memory store, data resets on restart</span></>}
+    <Shell scope="Master board" groups={nav} title="Today">
+      <PageHead
+        title="Today"
+        finding={finding}
+        stamp={`${s.timezone.split("/")[1] || s.timezone} · ${bot.boards.updated()}`}
+      />
+
+      {s.store === "memory" && (
+        <p className="mb-5 rounded-card border border-[#fde68a] bg-[var(--pill-warning-bg)] px-3 py-2 text-small text-[var(--pill-warning-ink)]">
+          In-memory store: every task and message here is lost when the server restarts. Set <span className="font-mono">MONGODB_URI</span>{/* taste-skill-ignore: an environment variable name */} before go-live.
         </p>
-      </header>
+      )}
 
-      <Stats s={stats} />
+      {/* The lead figure answers the sentence under the title. */}
+      <Stats items={[
+        { label: "Waiting on you", value: pending.length, tone: "negative", caption: "stuck on you, plus your own open tasks" },
+        { label: "Needs attention", value: stats.attention, caption: `of ${stats.open} open: stuck, a P1 over a day old, or 7 days` },
+        { label: "P1 open", value: stats.p1, caption: "delivered the moment you send them" },
+        { label: "Closed", value: stats.doneWeek, caption: "in the last 7 days" },
+      ]} />
 
-      <section className="mt-6">
-        <h2 className="mb-2 text-[15px] font-semibold">Boards</h2>
-        <div className="overflow-hidden rounded-xl border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-800">
-          <Row href={`/board/${masterKey}`} title="Master board" sub="Everything, with tick, P1 / P2 and remarks — only for you"
-            right={<Count n={stats.attention} label="need you" tone="red" />} />
-          <div className="border-t border-stone-200 px-3.5 pb-3 pt-2.5 dark:border-stone-700">
-            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1">
-              <Pill href={`/board/${masterKey}?tab=attention`}>Needs attention</Pill>
-              <Pill href={`/board/${masterKey}?tab=mine`}>Mine</Pill>
-              <Pill href={`/board/${masterKey}?tab=messages`}>Messages</Pill>
-              <Pill href={`/board/${masterKey}/export`}>CSV backup</Pill>
-            </div>
-          </div>
+      <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_360px]">
+        <div className="grid min-w-0 content-start gap-6">
+          <Panel
+            title="The bot's day"
+            action={<span className="text-small text-faint">{next ? `next: ${next.what} at ${next.time}` : "done for today"}</span>}
+          >
+            <DayStrip slots={slots} nowMin={nowMin} />
+            <DayList slots={slots} nowMin={nowMin} />
+            <p className="mt-3 border-t border-rule pt-3 text-small text-faint">
+              Working days {s.workDays}. P1 tasks skip the schedule and go out the moment you send them. Outside
+              WhatsApp&rsquo;s 24-hour window the bot sends the approved template and releases the full task as soon as
+              the person replies.
+            </p>
+          </Panel>
+
+          <Panel
+            title="Team boards"
+            count={`${teams.length} boards`}
+            note={<>View only, and never showing your own tasks, so these counts are lower than the ones in the sidebar. Send <span className="font-mono text-muted">newlink EPC</span>{/* taste-skill-ignore: a literal WhatsApp command */} to the bot if a link leaks.</>}
+            pad={false}
+          >
+            <table className="w-full text-body">
+              <thead>
+                <tr className="text-small text-faint">
+                  <th scope="col" className="w-1/2 px-4 pb-2 pt-3 text-left font-normal sm:px-5">Business</th>
+                  <th scope="col" className="px-3 pb-2 pt-3 text-right font-normal">Open</th>
+                  <th scope="col" className="pb-2 pt-3 text-right font-normal">Attention</th>
+                  <th scope="col" className="pb-2 pt-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {teams.map((t) => (
+                  <tr key={t.name} className="border-t border-rule">
+                    <td className="px-4 py-2.5 align-middle sm:px-5">
+                      <a href={`/board/${t.key}`} className="text-body font-medium text-ink hover:text-[var(--accent)]">{t.name}</a>
+                      <span className="mt-0.5 block truncate text-small text-muted">{t.people}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-right align-middle tabular text-ink">{t.open}</td>
+                    <td className={`py-2.5 text-right align-middle tabular ${t.attention ? "text-ink" : "text-faint"}`}>
+                      {t.attention || "—"}
+                    </td>
+                    <td className="py-2.5 pl-3 pr-4 text-right align-middle sm:pr-5">
+                      <CopyLink path={`/board/${t.key}`} label={`Copy the ${t.name} board link`} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Panel>
         </div>
 
-        <h3 className="mb-2 mt-5 text-[13px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-          Team boards <span className="font-normal normal-case tracking-normal">· view only, share one per team</span>
-        </h3>
-        <div className="divide-y divide-stone-200 overflow-hidden rounded-xl border border-stone-200 bg-white dark:divide-stone-700 dark:border-stone-700 dark:bg-stone-800">
-          {teams.map((t) => (
-            <Row key={t.name} href={`/board/${t.key}`} title={t.name} sub={t.people}
-              right={<span className="flex gap-1.5">
-                <Count n={t.attention} label="stuck" tone="red" />
-                <Count n={t.open} label="open" />
-              </span>} />
+        <div className="grid min-w-0 content-start gap-6">
+          <Panel
+            title="Waiting on you"
+            action={
+              <a href={`/board/${masterKey}?tab=attention`} className="press inline-flex h-7 items-center gap-1 rounded-control border border-[var(--control)] px-2 text-small text-muted hover:border-ink hover:text-ink">
+                Open board <Icon.chevron width={12} height={12} />
+              </a>
+            }
+            pad={railCards.length === 0}
+          >
+            {railCards.length === 0 ? (
+              <Empty>Nothing is stuck on you and you have no tasks of your own.</Empty>
+            ) : (
+              <>
+                <div className="divide-y divide-rule px-4 sm:px-5">
+                  {railCards.map((c) => <TaskCard key={c.id} c={c} ownerView showBusiness compact />)}
+                </div>
+                {pending.length > railCards.length && (
+                  <p className="border-t border-rule px-4 py-2 text-small text-faint sm:px-5">
+                    {pending.length - railCards.length} more on the master board.
+                  </p>
+                )}
+              </>
+            )}
+          </Panel>
+
+          <Panel title="Master board" pad={false}>
+            <div className="divide-y divide-rule">
+              {[
+                ["Needs attention", `?tab=attention`, "stuck, overdue, and everything on you", "chevron"],
+                ["Mine", `?tab=mine`, "your own open tasks and today's score", "chevron"],
+                ["Messages", `?tab=messages`, "every message word for word, voice notes too", "chevron"],
+                ["CSV backup", "/export", "every task ever, as a spreadsheet", "download"],
+              ].map(([label, q, sub, glyph]) => {
+                const Glyph = Icon[glyph];
+                return (
+                  <a key={label} href={`/board/${masterKey}${q}`}
+                    className="press flex items-center gap-3 px-4 py-2.5 hover:bg-active/60 sm:px-5">
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-body font-medium">{label}</span>
+                      <span className="block truncate text-small text-muted">{sub}</span>
+                    </span>
+                    <Glyph className="flex-none text-faint" />
+                  </a>
+                );
+              })}
+            </div>
+          </Panel>
+        </div>
+      </div>
+
+      <Panel title="What you can send the bot" className="mt-6">
+        <div className="grid gap-x-10 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">
+          {helpBlocks().map((b, i) => (
+            <div key={i}>
+              {b.head && <h3 className="mb-1.5 text-body font-medium">{b.head}</h3>}
+              <ul className="space-y-1">
+                {b.items.map((it, j) => (
+                  <li key={j} className="text-body leading-snug text-muted">
+                    <Rich line={it.replace(/^• /, "")} />
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
         </div>
-      </section>
+      </Panel>
 
-      <section className="mt-7">
-        <h2 className="mb-2 text-[15px] font-semibold">The day, on its own</h2>
-        <dl className="overflow-hidden rounded-xl border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-800">
-          {schedule.map(([when, what]) => (
-            <div key={when} className="flex gap-3 border-b border-stone-200 px-3.5 py-2.5 last:border-0 dark:border-stone-700">
-              <dt className="w-[6.5rem] shrink-0 text-[13px] font-medium tabular-nums text-stone-500 dark:text-stone-400">{when}</dt>
-              <dd className="text-[14px] leading-snug">{what}</dd>
-            </div>
-          ))}
-        </dl>
-        <p className="mt-2 px-0.5 text-[13px] text-stone-500 dark:text-stone-400">
-          Working days {s.workDays}. Outside WhatsApp&rsquo;s 24-hour window the bot sends an approved template and releases
-          the full task the moment the person taps View.
-        </p>
-      </section>
-
-      <section className="mt-7">
-        <h2 className="mb-2.5 text-[15px] font-semibold">What you can send the bot</h2>
-        <div className="rounded-xl border border-stone-200 bg-white px-3.5 py-3.5 dark:border-stone-700 dark:bg-stone-800">
-          <HelpBlock />
-        </div>
-      </section>
-
-      <p className="mt-7 text-center text-xs text-stone-400 dark:text-stone-500">
-        Webhook <code className="font-mono">/api/webhook</code> · health <code className="font-mono">/api/health</code>
+      <p className="mt-6 text-small text-faint">
+        Webhook <span className="font-mono">/api/webhook</span> · health <span className="font-mono">/api/health</span>
       </p>
-    </main>
+    </Shell>
   );
 }

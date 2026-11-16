@@ -1,105 +1,150 @@
+// The two boards. Both render inside the sheet; the frame and the navigation
+// come from Shell. A team board is view-only; the master board can tick a task
+// and change its priority.
 import TaskCard from "./TaskCard";
+import { PageHead } from "./Shell";
+import { Icon, Stats, Section, Empty } from "./ui";
 
-export function Stats({ s }) {
-  const items = [["Open", s.open], ["Attention", s.attention], ["P1 open", s.p1], ["Done this week", s.doneWeek]];
-  return (
-    <div className="mb-4 grid grid-cols-4 gap-2">
-      {items.map(([k, v]) => (
-        <div key={k} className="rounded-xl border border-stone-200 bg-white px-2.5 py-2 dark:border-stone-700 dark:bg-stone-800">
-          <div className="text-xl font-semibold">{v}</div>
-          <div className="text-[11px] leading-tight text-stone-500 dark:text-stone-400">{k}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
-function Section({ title, count, empty, children }) {
-  return (
-    <section className="mt-5">
-      <h2 className="mb-2 flex items-baseline justify-between text-[15px] font-semibold">
-        {title}<span className="text-xs font-normal text-stone-500">{count}</span>
-      </h2>
-      {count === 0 && empty ? <p className="px-0.5 py-1 text-sm text-stone-500">{empty}</p> : children}
-    </section>
-  );
+function statItems(s, caption = {}) {
+  return [
+    { label: "Open", value: s.open, caption: caption.open || "not closed or cancelled" },
+    { label: "Needs attention", value: s.attention, tone: "negative", caption: "stuck, a P1 over a day old, or 7 days open" },
+    { label: "P1 open", value: s.p1, caption: "delivered the moment you send them" },
+    { label: "Closed", value: s.doneWeek, caption: "in the last 7 days" },
+  ];
 }
 
 export function Pill({ href, on, children }) {
   return (
-    <a href={href} className={`whitespace-nowrap rounded-full border px-3 py-1 text-sm ${on
-      ? "border-stone-900 bg-stone-900 text-white dark:border-stone-100 dark:bg-stone-100 dark:text-stone-900"
-      : "border-stone-300 bg-white text-stone-800 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100"}`}>{children}</a>
+    <a
+      href={href}
+      aria-current={on ? "true" : undefined}
+      className={`press inline-flex h-8 items-center whitespace-nowrap rounded-control border px-2.5 text-body ${
+        on
+          ? "border-ink bg-ink text-[var(--surface)]"
+          : "border-[var(--control)] text-muted hover:border-ink hover:text-ink"
+      }`}
+    >
+      {children}
+    </a>
   );
 }
 
+// A scrolling tab row, shown only where the sidebar is folded away.
+function MobileTabs({ tabs, tab, boardKey }) {
+  return (
+    <nav className="-mx-4 mb-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:hidden">
+      {tabs.map(([k, label]) => (
+        <Pill key={k} href={`/board/${boardKey}?tab=${k}`} on={k === tab}>{label}</Pill>
+      ))}
+    </nav>
+  );
+}
+
+function Rows({ cards, empty, ...rest }) {
+  if (!cards.length) return <Empty>{empty}</Empty>;
+  return (
+    <div className="border-t border-rule">
+      {cards.map((c) => <TaskCard key={c.id} c={c} {...rest} />)}
+    </div>
+  );
+}
+
+// ── Team board ───────────────────────────────────────────────────────────
 export function TeamBoard({ data }) {
+  const att = data.attention.length;
+  const oldest = Math.max(0, ...data.attention.map((c) => c.days || 0));
+  const finding = att
+    ? `${plural(att, "task")} need attention${oldest >= 3 ? `; the oldest has been open ${plural(oldest, "day")}` : ""}.`
+    : "Nothing is stuck or overdue.";
+
   return (
     <>
-      <Header title={data.title} sub={`Updated ${data.updated} · view only · update your tasks on WhatsApp`} />
-      <Stats s={data.stats} />
-      <Section title="Needs attention" count={data.attention.length} empty="Nothing stuck or overdue.">
-        {data.attention.map((c) => <TaskCard key={c.id} c={c} />)}
-      </Section>
-      {data.groups.map((g) => (
-        <Section key={g.name} title={g.name} count={`${g.cards.length} open`}>
-          {g.cards.map((c) => <TaskCard key={c.id} c={c} />)}
-        </Section>
-      ))}
-      <Section title="Done in the last 7 days" count={data.done.length} empty="Nothing yet.">
-        {data.done.map((c) => <TaskCard key={c.id} c={c} />)}
-      </Section>
+      <PageHead
+        title={data.title}
+        finding={finding}
+        stamp={`Updated ${data.updated}`}
+      />
+
+      <Stats items={statItems(data.stats)} />
+
+      <div className="mt-7 grid gap-x-6 gap-y-7 xl:grid-cols-[1fr_300px]">
+        <div className="min-w-0">
+          <Section title="Needs attention" count={att ? `${att}` : null}>
+            <Rows cards={data.attention} empty="Nothing stuck or overdue." />
+          </Section>
+
+          {data.groups.map((g) => (
+            <Section key={g.name} title={g.name} count={`${g.cards.length} open`} className="mt-7">
+              <Rows cards={g.cards} empty="No open tasks." />
+            </Section>
+          ))}
+        </div>
+
+        <div className="min-w-0">
+          <Section title="Closed in the last 7 days" count={data.done.length || null}>
+            <Rows cards={data.done} empty="Nothing closed yet this week." compact />
+          </Section>
+
+          <p className="mt-6 rounded-card border border-edge bg-raised px-3 py-2.5 text-meta text-muted">
+            This board is view only. Reply to the bot on WhatsApp with your status, &ldquo;1 done, 2 working,
+            3 stuck&rdquo;, and it lands here within a minute.
+          </p>
+        </div>
+      </div>
     </>
   );
+}
+
+// ── Master board ─────────────────────────────────────────────────────────
+function masterFinding(data) {
+  if (data.tab === "mine") return data.score ? `${data.score} of your own tasks.` : "You have no tasks of your own.";
+
+  const first = data.sections?.[0];
+  if (data.tab === "attention") {
+    const onMe = first?.cards.length || 0;
+    const team = data.sections?.[1]?.cards.length || 0;
+    const oldest = Math.max(0, ...(first?.cards.map((c) => c.days || 0) || [0]));
+    if (!onMe) return team ? `Nothing is waiting on you. ${plural(team, "task")} are stuck or overdue with the team.` : "Nothing is stuck and nothing is waiting on you.";
+    return `${plural(onMe, "task")} waiting on you${oldest >= 3 ? `, the oldest open ${plural(oldest, "day")}` : ""}. ${plural(team, "task")} stuck or overdue with the team.`;
+  }
+  const open = data.stats?.open || 0;
+  const people = data.sections?.filter((s) => s.cards.length).length || 0;
+  return `${plural(open, "task")} open across ${people} ${people === 1 ? "person" : "people"}.`;
 }
 
 export function MasterBoard({ data, boardKey }) {
   const showBusiness = data.tab === "attention" || data.tab === "mine";
+
   return (
     <>
-      <Header title={data.title} sub={`Master board · updated ${data.updated}`} />
-      <nav className="-mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1.5">
-        {data.tabs.map(([k, label]) => <Pill key={k} href={`/board/${boardKey}?tab=${k}`} on={k === data.tab}>{label}</Pill>)}
-      </nav>
-      {data.stats && <Stats s={data.stats} />}
-      {data.score && <p className="mb-2 text-sm text-stone-500">{data.score}</p>}
+      <PageHead
+        title={data.title}
+        finding={masterFinding(data)}
+        stamp={`Updated ${data.updated}`}
+        actions={
+          <a
+            href={`/board/${boardKey}/export`}
+            className="press inline-flex h-8 items-center gap-1.5 rounded-control border border-[var(--control)] px-2.5 text-small text-muted hover:border-ink hover:text-ink"
+          >
+            <Icon.download width={14} height={14} />
+            CSV backup
+          </a>
+        }
+      />
+
+      <MobileTabs tabs={data.tabs} tab={data.tab} boardKey={boardKey} />
+
+      {data.stats && <Stats items={statItems(data.stats)} />}
+
       {data.sections?.map((s, i) => (
-        <Section key={i} title={s.title} count={s.cards.length} empty={s.empty}>
-          {s.cards.map((c) => <TaskCard key={c.id} c={c} boardKey={boardKey} tab={data.tab} showBusiness={showBusiness} />)}
+        <Section key={i} title={s.title} count={s.cards.length || null} className="mt-7">
+          <Rows cards={s.cards} empty={s.empty || "Nothing here."} boardKey={boardKey} tab={data.tab} showBusiness={showBusiness} />
         </Section>
       ))}
-      {data.tab === "messages" && (
-        <>
-          <nav className="-mx-1 mb-2 flex gap-1.5 overflow-x-auto px-1 pb-1.5">
-            <Pill href={`/board/${boardKey}?tab=messages`} on={!data.who}>Everyone</Pill>
-            {data.people.map((n) => <Pill key={n} href={`/board/${boardKey}?tab=messages&who=${encodeURIComponent(n)}`} on={data.who === n}>{n}</Pill>)}
-          </nav>
-          {data.messageDays.length === 0 && <p className="text-sm text-stone-500">No messages yet.</p>}
-          {data.messageDays.map((d) => (
-            <div key={d.day}>
-              <p className="mb-1.5 mt-4 text-xs uppercase tracking-wide text-stone-500">{d.day}</p>
-              {d.items.map((m, i) => (
-                <div key={i} className="mb-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 dark:border-stone-700 dark:bg-stone-800">
-                  <p className="text-xs text-stone-500 dark:text-stone-400">{m.time} · {m.voice ? "🎤 voice · " : ""}{m.person}</p>
-                  <p className="text-[15px]">{m.text}</p>
-                </div>
-              ))}
-            </div>
-          ))}
-        </>
-      )}
-      <p className="mt-8 text-center text-xs">
-        <a className="text-sky-700 underline dark:text-sky-300" href={`/board/${boardKey}/export`}>Download all tasks (CSV backup)</a>
-      </p>
     </>
   );
 }
 
-function Header({ title, sub }) {
-  return (
-    <header className="mb-3.5">
-      <h1 className="text-[21px] font-semibold">{title}</h1>
-      <p className="mt-0.5 text-[13px] text-stone-500 dark:text-stone-400">{sub}</p>
-    </header>
-  );
-}

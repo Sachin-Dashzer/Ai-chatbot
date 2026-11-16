@@ -1,25 +1,108 @@
 import { getBot } from "../../../lib/runtime.js";
 import { MASTER } from "../../../lib/boards.js";
 import { TeamBoard, MasterBoard } from "../../../components/Board";
+import Shell from "../../../components/Shell";
+import Chat from "../../../components/Chat";
 import AutoRefresh from "../../../components/AutoRefresh";
+import { Mark } from "../../../components/ui";
 
 export const dynamic = "force-dynamic";
+
+// The master board's navigation: the three views Ankit works in, then one row
+// per business carrying the number of its tasks that need attention.
+async function masterNav(bot, key, tab) {
+  const open = await bot.openTasks();
+  const owner = bot.d.owner.name;
+  const attention = (list) => list.filter((t) => bot.boards.needsAttention(t)).length;
+
+  const work = [
+    { href: `/board/${key}?tab=attention`, label: "Needs attention", icon: "flag", active: tab === "attention",
+      count: attention(open), countTitle: "tasks stuck or overdue" },
+    { href: `/board/${key}?tab=mine`, label: "Mine", icon: "user", active: tab === "mine",
+      count: open.filter((t) => t.owner === owner).length, countTitle: "of your own tasks are open" },
+    { href: `/board/${key}?tab=messages`, label: "Messages", icon: "inbox", active: tab === "messages" },
+  ];
+
+  const businesses = bot.boards.teamBusinesses().map((b) => ({
+    href: `/board/${key}?tab=${b.toLowerCase()}`,
+    label: b,
+    active: tab === b.toLowerCase(),
+    count: attention(open.filter((t) => t.business === b)),
+    countTitle: `tasks needing attention in ${b}`,
+  }));
+
+  return [
+    { items: [{ href: "/", label: "Today", icon: "home" }, ...work] },
+    { label: "Businesses", items: businesses },
+  ];
+}
 
 export default async function BoardPage({ params, searchParams }) {
   const { key } = await params;
   const sp = await searchParams;
   const bot = getBot();
   const scope = await bot.boards.scopeOf(key);
+
   if (!scope) {
-    return <main className="mx-auto max-w-xl p-6"><h1 className="text-lg font-semibold">This link is not valid.</h1></main>;
+    return (
+      <Shell title="Link not valid">
+        <div className="mx-auto max-w-[46ch] py-12 sm:py-20">
+          <h1 className="text-title font-semibold">This link is not valid</h1>
+          <p className="mt-2 text-body text-muted">
+            It has most likely been replaced. Whenever a board link is replaced from WhatsApp the old one stops
+            working straight away, so nothing that leaked keeps access.
+          </p>
+          <p className="mt-4 text-body text-muted">
+            Ask Ankit for the current one: he sends <span className="font-mono text-ink">boards</span>{/* taste-skill-ignore: a literal WhatsApp command */} to the bot
+            and gets every link back.
+          </p>
+        </div>
+      </Shell>
+    );
   }
+
   const isMaster = scope === MASTER;
-  const data = isMaster ? await bot.boards.masterBoard(sp?.tab || "attention", sp?.who || "") : await bot.boards.teamBoard(scope);
+
+  if (isMaster) {
+    const tab = sp?.tab || "attention";
+    const data = await bot.boards.masterBoard(tab, sp?.who || "");
+    const groups = await masterNav(bot, key, data.tab);
+
+    // The chat lays out and scrolls its own two panes, so it gets the whole
+    // area rather than the padded canvas the other tabs use.
+    if (data.tab === "messages") {
+      return (
+        <Shell scope="Master board" groups={groups} title={data.title} flush>
+          <AutoRefresh seconds={120} />
+          <Chat data={data} boardKey={key} />
+        </Shell>
+      );
+    }
+
+    return (
+      <Shell scope="Master board" groups={groups} title={data.title}>
+        <AutoRefresh seconds={120} />
+        <MasterBoard data={data} boardKey={key} />
+        <Footer />
+      </Shell>
+    );
+  }
+
+  const data = await bot.boards.teamBoard(scope);
   return (
-    <main className="mx-auto max-w-2xl px-3.5 pb-10 pt-4">
+    <Shell brand={`${scope} · Ankit Desk`} title={scope}>
       <AutoRefresh seconds={120} />
-      {isMaster ? <MasterBoard data={data} boardKey={key} /> : <TeamBoard data={data} />}
-      <p className="mt-6 text-center text-xs text-stone-400">Ankit Desk · refreshes every 2 minutes</p>
-    </main>
+      <TeamBoard data={data} />
+      <Footer />
+    </Shell>
+  );
+}
+
+function Footer() {
+  return (
+    <p className="mt-6 flex items-center gap-1.5 text-small text-faint">
+      <Mark size={14} />
+      Ankit Desk · this page refreshes itself every 2 minutes
+    </p>
   );
 }

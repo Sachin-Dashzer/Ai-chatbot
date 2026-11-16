@@ -1,69 +1,118 @@
-// One task. View-only on team boards; on the master board it gets a tick box, a P1/P2 button and remark history.
-function Tag({ tone, children }) {
-  const tones = {
-    p1: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
-    stuck: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
-    working: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
-    done: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200",
-  };
-  return <span className={`mr-1 inline-block rounded-md px-1.5 py-px align-[1px] text-[11px] font-semibold ${tones[tone]}`}>{children}</span>;
-}
+// One task, as a list row. View-only on team boards; on the master board it
+// gets a tick, a P1/P2 control and its remark history.
+// The row uses the full width: what it is on the left, who and how old on one
+// right edge, the action last. Below lg it folds into two lines.
+import { Icon, Status, P1Mark } from "./ui";
 
 function ActionForm({ boardKey, tab, id, action, children, className, label }) {
   return (
-    <form method="post" action={`/board/${boardKey}/act`}>
+    <form method="post" action={`/board/${boardKey}/act`} className="contents">
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="tab" value={tab} />
-      <button name="action" value={action} className={className} aria-label={label} title={label}>{children}</button>
+      <button name="action" value={action} className={className} aria-label={label} title={label}>
+        {children}
+      </button>
     </form>
   );
 }
 
-export default function TaskCard({ c, boardKey, tab, showBusiness = false }) {
-  const master = Boolean(boardKey);
-  const meta = [master && c.isMine ? "You" : c.owner];
-  if (showBusiness) meta.push(c.business);
-  const age = c.status === "done" ? `done ${c.doneOn}` : c.ageText;
-  const ageClass = c.status === "done" ? "" : c.ageLevel === "red" ? "font-semibold text-red-700 dark:text-red-300" : c.ageLevel === "amber" ? "font-semibold text-amber-700 dark:text-amber-300" : "";
+function statusMark(c, ownerView) {
+  // Closed tasks only ever appear in a section that already says so, and the
+  // meta line carries the date — a chip on every row would just be a stripe.
+  if (c.status === "done") return null;
+  if (c.status === "stuck") {
+    return c.stuckOn === "ankit"
+      ? <Status dot="warning">{ownerView ? "Waiting on you" : "Waiting on Ankit"}</Status>
+      : <Status dot="warning">Stuck</Status>;
+  }
+  if (c.status === "working") return <Status dot="muted">Working</Status>;
+  return <Status dot="open">Not started</Status>;
+}
+
+function Meta({ who, business, age, old, className = "" }) {
   return (
-    <div className={`mb-2 flex items-start gap-3 rounded-xl border border-stone-200 bg-white px-3 py-2.5 dark:border-stone-700 dark:bg-stone-800 ${c.attention ? "border-l-4 border-l-red-600" : ""}`}>
+    <p className={`mt-1 flex items-baseline justify-between gap-4 text-meta text-muted ${className}`}>
+      <span className="min-w-0 truncate">{business ? `${who} · ${business}` : who}</span>
+      <span className={`flex-none tabular ${old ? "font-medium text-ink" : ""}`}>{age}</span>
+    </p>
+  );
+}
+
+// `compact` keeps the row on one stacked column — for the narrow rails, where
+// splitting it would squeeze the description to three words a line.
+export default function TaskCard({ c, boardKey, tab, showBusiness = false, compact = false, ownerView = Boolean(boardKey) }) {
+  const master = Boolean(boardKey);
+  const who = ownerView && c.isMine ? "You" : c.owner;
+  const age = c.status === "done" ? `done ${c.doneOn}` : c.ageText;
+  const old = c.status !== "done" && c.ageLevel === "red";
+
+  return (
+    <div className="flex items-start gap-3 border-b border-rule py-2.5 last:border-0">
       {master && c.status !== "done" && (
-        <ActionForm boardKey={boardKey} tab={tab} id={c.id} action="done" label="Mark done"
-          className="mt-0.5 h-6 w-6 flex-none rounded-md border-2 border-stone-400 hover:bg-green-100 active:bg-green-200 dark:border-stone-500" />
+        <ActionForm
+          boardKey={boardKey} tab={tab} id={c.id} action="done" label={`Mark #${c.id} done`}
+          className="press group mt-[3px] flex h-[18px] w-[18px] flex-none items-center justify-center rounded-[3px] border-2 border-[var(--control)] hover:border-[var(--positive)]"
+        >
+          <Icon.check
+            width={12} height={12} strokeWidth={2.2}
+            className="text-[var(--positive)] opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100"
+          />
+        </ActionForm>
       )}
-      <div className="min-w-0 flex-1">
-        <p className="text-[15px] leading-snug">
-          {c.p1 && <Tag tone="p1">P1</Tag>}
-          {c.status === "stuck" && <Tag tone="stuck">Stuck · {c.stuckOn === "ankit" ? "Ankit" : "others"}</Tag>}
-          {c.status === "working" && <Tag tone="working">Working</Tag>}
-          {c.status === "done" && <Tag tone="done">Done</Tag>}
-          <span className="text-stone-400">#{c.id}</span> {c.description}
-        </p>
-        <p className="mt-0.5 text-[13px] text-stone-500 dark:text-stone-400">
-          {meta.join(" · ")} · <span className={ageClass}>{age}</span>{c.note ? ` · ${c.note}` : ""}
-        </p>
-        {master && c.remarks.length > 0 && (
-          <details className="mt-1.5 text-[13px]">
-            <summary className="cursor-pointer text-sky-700 dark:text-sky-300">Remarks ({c.remarks.length})</summary>
-            <ul className="mt-1">
-              {c.remarks.map((r, i) => (
-                <li key={i} className="my-1 border-l-2 border-stone-200 pl-2 dark:border-stone-600">
-                  <span className="text-stone-500 dark:text-stone-400">{r.when} · {r.person}{r.status ? ` · ${r.status}` : ""}</span>
-                  <br />{r.text || "—"}
-                </li>
-              ))}
-            </ul>
-          </details>
-        )}
-        {master && c.status !== "done" && (
-          <div className="mt-1.5">
-            <ActionForm boardKey={boardKey} tab={tab} id={c.id} action={c.p1 ? "p2" : "p1"} label={c.p1 ? "Make P2" : "Make P1"}
-              className="rounded-md border border-stone-300 px-2 py-0.5 text-xs text-stone-500 hover:bg-stone-100 dark:border-stone-600 dark:hover:bg-stone-700">
-              {c.p1 ? "Make P2" : "Make P1"}
-            </ActionForm>
+
+      <div className={`min-w-0 flex-1 ${compact ? "" : "lg:flex lg:items-start lg:gap-5"}`}>
+        <div className={`min-w-0 ${compact ? "" : "lg:flex-1"}`}>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {c.p1 && <P1Mark />}
+            {statusMark(c, ownerView)}
+            <p className="min-w-0 text-body text-ink">
+              <span className="font-mono text-meta text-faint">#{c.id}</span>{/* taste-skill-ignore: a task id */} {c.description}
+            </p>
           </div>
-        )}
+
+          {c.note && <p className="mt-1 text-meta text-muted">{c.note}</p>}
+
+          {/* Stacked: who and how old belong on line 2, above the disclosure.
+              Split: the same facts move to their own right-aligned column. */}
+          {!compact && <Meta who={who} business={showBusiness && c.business} age={age} old={old} className="lg:hidden" />}
+
+          {master && c.remarks.length > 0 && (
+            <details className="mt-1.5">
+              <summary className="press inline-flex items-center gap-1 text-meta text-muted hover:text-ink">
+                <Icon.chevron className="chev" width={12} height={12} />
+                {c.remarks.length} remark{c.remarks.length === 1 ? "" : "s"}
+              </summary>
+              <ul className="mt-1.5 space-y-2 border-l border-edge pl-3">
+                {c.remarks.map((r, i) => (
+                  <li key={i} className="text-meta">
+                    <span className="tabular text-faint">{r.when}</span>
+                    <span className="px-1 text-faint">·</span>
+                    <span className="text-muted">{r.person}{r.status ? ` · ${r.status.toLowerCase()}` : ""}</span>
+                    <span className="mt-0.5 block text-body text-ink">{r.text || "—"}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+
+        <Meta
+          who={who} business={showBusiness && c.business} age={age} old={old}
+          className={compact ? "" : "hidden lg:mt-[3px] lg:flex lg:w-56 lg:flex-none"}
+        />
       </div>
+
+      {master && c.status !== "done" && (
+        <div className="flex-none pt-px">
+          <ActionForm
+            boardKey={boardKey} tab={tab} id={c.id} action={c.p1 ? "p2" : "p1"}
+            label={c.p1 ? `Move #${c.id} to P2` : `Make #${c.id} a P1`}
+            className="press inline-flex h-7 items-center whitespace-nowrap rounded-control border border-[var(--control)] px-2 text-meta text-muted hover:border-ink hover:text-ink"
+          >
+            {c.p1 ? "Make P2" : "Make P1"}
+          </ActionForm>
+        </div>
+      )}
     </div>
   );
 }
