@@ -9,6 +9,6 @@ export async function POST(req, { params }) {
   if (new URL(req.url).searchParams.get("token") !== bot.s.waVerifyToken) return new Response("forbidden", { status: 403 });
   const jobs = { batch: () => bot.runBatch(), checkin: () => bot.runCheckin(), nudge: () => bot.runNudge(), brief: () => bot.runBrief() };
   if (!jobs[job]) return new Response("unknown job", { status: 404 });
-  await jobs[job]();
-  return Response.json({ ran: job });
+  // The job's own result comes back, so a failed WhatsApp send shows up here, not only in the logs.
+  return Response.json({ ran: job, ...(await jobs[job]()) });
 }

@@ -107,7 +107,7 @@ The console prints board links (master + each business) with sample tasks. Open 
 ```bash
 WA_TOKEN=... WA_WABA_ID=... npm run templates
 ```
-Both must be **Active** in WhatsApp Manager: `ankit_desk_update` and `urgent_task`. If one is rejected, reword it in `templates.json` (keep the name) and resubmit.
+`task_reminder` must be **Active** in WhatsApp Manager. It is the only template the bot sends, and the only way to reach anyone outside the 24-hour window - including the very first message. If it is rejected, reword the body in `templates.json` (keep the name and the three `{{n}}` params) and resubmit.
 
 ### 6. Hosting on Railway (~₹450/month)
 - Push to a **private** GitHub repo (people.yaml has phone numbers).
@@ -139,7 +139,7 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{batch|checkin|nud
 - [ ] `msgs Himanshu` → his messages word for word; master board → Messages tab shows them
 - [ ] `boards` → links; team board view-only; master tick and P1/P2 work; CSV downloads
 - [ ] `pause Pulkit today` → P2 held, P1 still delivered; `resume Pulkit`
-- [ ] Someone who hasn't messaged for 24h gets "tap View"; tapping View shows the full text
+- [ ] Someone who has never messaged the bot gets the `task_reminder` template with the task in it; their reply releases the full text
 - [ ] Before go-live: drop the `ankit_desk` database in Atlas (clears test data)
 
 ---
@@ -161,4 +161,4 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{batch|checkin|nud
 | Bot SIM lapses | Keep it recharged; losing it can lose the WhatsApp number |
 | Adding a person | Add to people.yaml, push (Railway redeploys), they send "Hi" |
 
-**WhatsApp 24-hour rule:** free-form messages only reach people who messaged the bot in the last 24 hours. The bot handles it: outside the window it sends the short `ankit_desk_update` template ("tap View") and releases the full text on tap; P1 uses `urgent_task` so the content arrives at once. Everyone sends "Hi" once before go-live.
+**WhatsApp 24-hour rule:** free-form messages only reach people who messaged the bot in the last 24 hours, so the very first message to a new person can only be a template. The bot handles it: outside the window it sends `task_reminder` with the task itself in it, and releases any held text the moment the person replies. No one has to send "Hi" first.

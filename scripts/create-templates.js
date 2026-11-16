@@ -1,4 +1,4 @@
-// Submit the 2 message templates to Meta for approval.
+// Submit the message templates in templates.json to Meta for approval.
 // Usage: WA_TOKEN=... WA_WABA_ID=... node scripts/create-templates.js
 import fs from "node:fs";
 

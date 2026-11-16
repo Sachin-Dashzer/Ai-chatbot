@@ -5,9 +5,12 @@ import { Bot } from "../lib/bot.js";
 export const OWNER = "910000000001", HIMANSHU = "910000000002", SHALU = "910000000003", RAJNEESH = "910000000004", PULKIT = "910000000005";
 
 export class FakeWA {
-  constructor() { this.sent = []; }
-  async sendText(to, body) { this.sent.push({ kind: "text", to, body }); }
-  async sendTemplate(to, name, params = [], payloads = []) { this.sent.push({ kind: "template", to, name, params, payloads }); }
+  // failing = [phone, ...]: sends to those numbers throw, the way the real client does on a
+  // rejected template, an expired token or a number that is not on WhatsApp.
+  constructor() { this.sent = []; this.failing = []; }
+  _check(to) { if (this.failing.includes(to)) throw new Error("WhatsApp send failed 400: (#132015) template is not Active"); }
+  async sendText(to, body) { this._check(to); this.sent.push({ kind: "text", to, body }); }
+  async sendTemplate(to, name, params = [], payloads = []) { this._check(to); this.sent.push({ kind: "template", to, name, params, payloads }); }
   async downloadMedia(id) { return { bytes: Buffer.from(id), mime: "audio/ogg" }; }
   to(p) { return this.sent.filter((m) => m.to === p); }
   last(p) { const a = this.to(p); return a[a.length - 1]; }

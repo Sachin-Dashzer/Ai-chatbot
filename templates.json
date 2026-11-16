@@ -1,29 +1,21 @@
 [
   {
-    "name": "ankit_desk_update",
+    "name": "task_reminder",
     "category": "UTILITY",
     "language": "en",
     "components": [
       {
         "type": "BODY",
-        "text": "Hello {{1}}, you have {{2}} from Ankit Desk. Tap View to see it.",
-        "example": {"body_text": [["Himanshu", "3 new tasks"]]}
-      },
-      {
-        "type": "BUTTONS",
-        "buttons": [{"type": "QUICK_REPLY", "text": "View"}]
-      }
-    ]
-  },
-  {
-    "name": "urgent_task",
-    "category": "UTILITY",
-    "language": "en",
-    "components": [
-      {
-        "type": "BODY",
-        "text": "P1 (urgent) task from Ankit\n\nTask #{{1}}: {{2}}\nBusiness: {{3}}\n\nPlease update its status in today's 6 PM check-in.",
-        "example": {"body_text": [["14", "Send Galaxy Royal final invoice", "HoldPoint"]]}
+        "text": "Hello {{1}}, you have an update from Ankit Desk: {{2}}. Date: {{3}}. Reply to this message to see the full details.",
+        "example": {
+          "body_text": [
+            [
+              "Rahul",
+              "submission of bank statements for GST filing",
+              "20 Nov 2026"
+            ]
+          ]
+        }
       }
     ]
   }

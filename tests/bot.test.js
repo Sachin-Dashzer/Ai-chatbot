@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { setup, makeClock, text, voice, tap, VOICE, OWNER, HIMANSHU, SHALU, RAJNEESH, PULKIT } from "./helpers.js";
+import { setup, makeClock, text, voice, VOICE, OWNER, HIMANSHU, SHALU, RAJNEESH, PULKIT } from "./helpers.js";
 import { extractJson } from "../lib/ai.js";
 import { cronDays } from "../lib/scheduler.js";
 
@@ -75,26 +75,28 @@ test("example Monday: P1 instant, P2 batched, one check-in, one reply, nudge, br
   assert.equal((await bot.getTask(own)).status, "done");
 });
 
-test("closed 24h window: tap-View template, then full text; P1 uses urgent template", async () => {
+test("closed 24h window: template carries the task, full text once the person replies", async () => {
   const clock = makeClock(); clock.at(16, 9);
   const { bot, wa } = setup(clock);
   await bot.handleMessage(text(OWNER, "Pulkit – Amazon report"));
   clock.at(16, 12);
   await bot.runBatch();
   let m = wa.last(PULKIT);
-  assert.equal(m.kind, "template"); assert.equal(m.name, "ankit_desk_update");
-  assert.deepEqual(m.params, ["Pulkit", "1 new task"]); assert.deepEqual(m.payloads, ["view"]);
+  assert.equal(m.kind, "template"); assert.equal(m.name, "task_reminder");
+  assert.deepEqual(m.params, ["Pulkit", "1 new task", "16 Nov 2026"]);
+  assert.deepEqual(m.payloads, []); // no button on this template: replying is what releases the text
   clock.at(16, 18);
   await bot.runCheckin();
   assert.equal(wa.to(PULKIT).filter((x) => x.kind === "template").length, 2);
-  await bot.handleMessage(tap(PULKIT, "view"));
+  await bot.handleMessage(text(PULKIT, "ok"));  // any reply opens the window and flushes what was held
   const texts = wa.to(PULKIT).filter((x) => x.kind === "text").map((x) => x.body);
   assert.ok(texts.some((t) => t.includes("New task")) && texts.some((t) => t.includes("Your open tasks")));
   clock.at(18, 10);
   bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Shalu", task: "Call bank today", priority: "urgent" }] });
   await bot.handleMessage(text(OWNER, "Shalu call bank urgent"));
   m = wa.last(SHALU);
-  assert.equal(m.kind, "template"); assert.equal(m.name, "urgent_task"); assert.ok(m.params.includes("Call bank today"));
+  assert.equal(m.kind, "template"); assert.equal(m.name, "task_reminder");
+  assert.ok(m.params.some((p) => p.includes("Call bank today")) && m.params[0] === "Shalu");
 });
 
 test("unknown numbers and duplicates ignored, unclear tasks reported", async () => {
@@ -227,7 +229,8 @@ test("boards and safeguards: privacy, attention, tick, P1, newlink, move, assign
   await bot.handleMessage(text(OWNER, `assign ${sid} Rajneesh`));
   assert.equal((await bot.getTask(sid)).owner, "Rajneesh");
   const m = wa.last(RAJNEESH);
-  assert.equal(m.kind, "template"); assert.equal(m.name, "urgent_task"); assert.ok(m.params.includes("Oct collections"));
+  assert.equal(m.kind, "template"); assert.equal(m.name, "task_reminder");
+  assert.ok(m.params.some((p) => p.includes("Oct collections")));
 
   const rid = (await bot.store.findOne("tasks", { description: "Oct GSTR-2B reconciliation" })).id;
   bot.ai.parseOwner = async () => ({ tasks: [], duplicates: [{ task_id: rid }] });
@@ -321,4 +324,47 @@ test("cron endpoint: runs a due slot once, ignores off-window, off-day, bad toke
   assert.match((await hit()).note, /in-process scheduler/);
   delete globalThis.__ankitDeskCron;
   delete globalThis.__ankitDesk;
+});
+
+test("a failed WhatsApp send never loses the task: the next batch retries it", async () => {
+  const clock = makeClock(); clock.at(16, 10);
+  const { bot, wa } = setup(clock);
+  for (const p of [HIMANSHU, PULKIT]) await bot.handleMessage(text(p, "Hi"));
+  wa.sent.length = 0;
+
+  // P1: told instantly, but WhatsApp rejects it. Ankit must be told, and the task must stay queued.
+  clock.at(16, 11);
+  wa.failing = [HIMANSHU];
+  await bot.handleMessage(voice(OWNER, "v1"));
+  assert.match(wa.last(OWNER).body, /NOT delivered/);
+  const p1 = (await bot.openTasks("Himanshu"))[0];
+  assert.equal(p1.notified, 0);
+
+  // P2: the batch send fails too, so nothing is marked delivered.
+  wa.failing = [HIMANSHU, PULKIT];
+  await bot.handleMessage(text(OWNER, "Pulkit – last 7 days Amazon ad spend report"));
+  const p2 = (await bot.openTasks("Pulkit"))[0];
+  clock.at(16, 12);
+  const first = await bot.runBatch();
+  assert.equal(first.sent.length, 0);
+  assert.equal(first.failed.length, 2, JSON.stringify(first));
+  assert.equal((await bot.getTask(p1.id)).notified, 0);
+  assert.equal((await bot.getTask(p2.id)).notified, 0);
+
+  // WhatsApp recovers: the 4 PM batch delivers both and only then marks them.
+  wa.failing = [];
+  clock.at(16, 16);
+  const second = await bot.runBatch();
+  assert.deepEqual(second.failed, []);
+  assert.match(wa.last(HIMANSHU).body, /Galaxy Royal/);
+  assert.match(wa.last(PULKIT).body, /Amazon/);
+  assert.equal((await bot.getTask(p1.id)).notified, 1);
+  assert.equal((await bot.getTask(p2.id)).notified, 1);
+
+  // And a broken number for one person must not stop the rest of the team.
+  wa.failing = [HIMANSHU];
+  await bot.handleMessage(text(OWNER, "Pulkit – last 7 days Amazon ad spend report"));
+  clock.at(16, 17);
+  const third = await bot.runBatch();
+  assert.deepEqual(third.sent, ["Pulkit:1"]);
 });
