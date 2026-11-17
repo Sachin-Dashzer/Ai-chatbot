@@ -1,16 +1,17 @@
 [
   {
-    "name": "task_update",
+    "name": "task_assigned",
     "category": "UTILITY",
     "language": "en",
     "components": [
       {
         "type": "BODY",
-        "text": "Hello {{1}}, you have a task update from Ankit. Reply to this message to see it.",
+        "text": "Hello {{1}}, Ankit has assigned you: {{2}} — reply to this message to update the status.",
         "example": {
           "body_text": [
             [
-              "Rahul"
+              "Rahul",
+              "#12 Send Galaxy Royal final invoice (HoldPoint)"
             ]
           ]
         }

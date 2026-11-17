@@ -107,7 +107,7 @@ The console prints board links (master + each business) with sample tasks. Open 
 ```bash
 WA_TOKEN=... WA_WABA_ID=... npm run templates
 ```
-`task_update` must be **Active** in WhatsApp Manager. It is the only template the bot sends, and the only way to reach anyone outside the 24-hour window - including the very first message. Its body takes **one** param, the person's name; the task itself follows as plain text once they reply. If you already have an approved template under another name, set `FIRST_TEMPLATE` instead of resubmitting - but it must take exactly one body param, or Meta rejects the send with error 132000.
+`task_assigned` must be **Active** in WhatsApp Manager. It is the only template the bot sends, and the only way to reach anyone outside the 24-hour window - including the very first message. Its body takes **two** params, the person's name and the task text, so the person reads the work in the template itself instead of having to reply first and gets it only once. Text too long for the parameter is cut there, and that row still arrives in full as plain text once the window opens. If you already have an approved template under another name, set `FIRST_TEMPLATE` instead of resubmitting - but it must take exactly two body params, or Meta rejects the send with error 132000.
 
 ### 6. Hosting on Railway (~₹450/month)
 - Push to a **private** GitHub repo (people.yaml has phone numbers).
@@ -139,7 +139,7 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{batch|checkin|nud
 - [ ] `msgs Himanshu` → his messages word for word; master board → Messages tab shows them
 - [ ] `boards` → links; team board view-only; master tick and P1/P2 work; CSV downloads
 - [ ] `pause Pulkit today` → P2 held, P1 still delivered; `resume Pulkit`
-- [ ] Someone who has never messaged the bot gets the `task_update` template; their reply releases the held task text
+- [ ] Someone who has never messaged the bot gets the `task_assigned` template with the task named in it, and their reply does not repeat it
 - [ ] `start Narendra` sends that template on demand; `start all` does the whole team
 - [ ] Before go-live: drop the `ankit_desk` database in Atlas (clears test data)
 
@@ -162,4 +162,4 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{batch|checkin|nud
 | Bot SIM lapses | Keep it recharged; losing it can lose the WhatsApp number |
 | Adding a person | Add to people.yaml, push (Railway redeploys), they send "Hi" |
 
-**WhatsApp 24-hour rule:** free-form messages only reach people who messaged the bot in the last 24 hours, so the very first message to a new person can only be a template. The bot handles it: outside the window it holds the task, sends the approved `task_update` template, and releases everything held the moment the person replies. No one has to send "Hi" first. To open the window before there is a task to send, Ankit sends `start Narendra` (or `start all`).
+**WhatsApp 24-hour rule:** free-form messages only reach people who messaged the bot in the last 24 hours, so the very first message to a new person can only be a template. The bot handles it: outside the window it holds the task, sends the approved `task_assigned` template with the task text as its second param, and on the person's reply releases only what the template could not carry - so nothing arrives twice. No one has to send "Hi" first. To open the window before there is a task to send, Ankit sends `start Narendra` (or `start all`).

@@ -76,31 +76,45 @@ test("example Monday: P1 instant, P2 batched, one check-in, one reply, nudge, br
   assert.equal((await bot.getTask(own)).status, "done");
 });
 
-test("closed 24h window: template opens it, the task itself once the person replies", async () => {
+test("closed 24h window: the template carries the task, the reply does not repeat it", async () => {
   const clock = makeClock(); clock.at(16, 9);
   const { bot, wa } = setup(clock);
   await bot.handleMessage(text(OWNER, "Pulkit – Amazon report"));
   clock.at(16, 12);
   await bot.runBatch();
   let m = wa.last(PULKIT);
-  assert.equal(m.kind, "template"); assert.equal(m.name, "task_update");
-  assert.deepEqual(m.params, ["Pulkit"]); // one body param: the approved template takes only the name
+  assert.equal(m.kind, "template"); assert.equal(m.name, "task_assigned");
+  // The task itself rides in the template, so the person sees the work without replying first.
+  assert.equal(m.params[0], "Pulkit");
+  assert.match(m.params[1], /Amazon/);
   assert.deepEqual(m.payloads, []); // no button on this template: replying is what releases the text
   assert.equal(await bot.store.count("pending_msgs", { phone: PULKIT }), 1); // the task waits in full
   clock.at(16, 18);
   await bot.runCheckin();
   assert.equal(wa.to(PULKIT).filter((x) => x.kind === "template").length, 2);
   await bot.handleMessage(text(PULKIT, "ok"));  // any reply opens the window and flushes what was held
+  // Both templates already carried this text, so the flush must not repeat it.
   const texts = wa.to(PULKIT).filter((x) => x.kind === "text").map((x) => x.body);
-  assert.ok(texts.some((t) => t.includes("New task")) && texts.some((t) => t.includes("Your open tasks")));
+  assert.ok(!texts.some((t) => t.includes("New task") || t.includes("Your open tasks")));
+  assert.equal(await bot.store.count("pending_msgs", { phone: PULKIT }), 0); // dequeued all the same
   clock.at(18, 10);
   bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Shalu", task: "Call bank today", priority: "urgent" }] });
   await bot.handleMessage(text(OWNER, "Shalu call bank urgent"));
   m = wa.last(SHALU);
-  assert.equal(m.kind, "template"); assert.deepEqual(m.params, ["Shalu"]);
-  // A P1 outside the window is held, not lost: the reply brings it through at once.
+  assert.equal(m.kind, "template"); assert.equal(m.params[0], "Shalu");
+  assert.match(m.params[1], /Call bank today/); // a P1 names the task in the template too
+  // The P1 was named in the template, so the reply does not send it a second time.
   await bot.handleMessage(text(SHALU, "ji"));
-  assert.ok(wa.to(SHALU).some((x) => x.kind === "text" && x.body.includes("Call bank today")));
+  assert.ok(!wa.to(SHALU).some((x) => x.kind === "text" && x.body.includes("Call bank today")));
+
+  // Longer than a template parameter holds: it is cut there, so the full text
+  // must still arrive as plain text the moment the window opens.
+  clock.at(18, 11);
+  const long = "Z".repeat(1200);
+  await bot.deliver(bot.d.byName("Pulkit"), long);
+  assert.equal(wa.last(PULKIT).kind, "template");
+  await bot.handleMessage(text(PULKIT, "ok"));
+  assert.ok(wa.to(PULKIT).some((x) => x.kind === "text" && x.body.includes(long)));
 });
 
 test("start: the owner opens the 24-hour window before there is a task to send", async () => {
@@ -111,9 +125,10 @@ test("start: the owner opens the 24-hour window before there is a task to send",
 
   await bot.handleMessage(text(OWNER, "start Pulkit"));
   const m = wa.last(PULKIT);
-  assert.equal(m.kind, "template"); assert.equal(m.name, "task_update");
-  assert.deepEqual(m.params, ["Pulkit"]);
-  assert.match(wa.last(OWNER).body, /task_update sent/);
+  assert.equal(m.kind, "template"); assert.equal(m.name, "task_assigned");
+  // Nothing is held for him yet, so the task parameter falls back to a neutral phrase.
+  assert.deepEqual(m.params, ["Pulkit", "a task update"]);
+  assert.match(wa.last(OWNER).body, /task_assigned sent/);
 
   await bot.handleMessage(text(PULKIT, "hi")); // the window is open now
   await bot.handleMessage(text(OWNER, "start Pulkit"));
@@ -255,7 +270,8 @@ test("boards and safeguards: privacy, attention, tick, P1, newlink, move, assign
   await bot.handleMessage(text(OWNER, `assign ${sid} Rajneesh`));
   assert.equal((await bot.getTask(sid)).owner, "Rajneesh");
   const m = wa.last(RAJNEESH);
-  assert.equal(m.kind, "template"); assert.deepEqual(m.params, ["Rajneesh"]);
+  assert.equal(m.kind, "template"); assert.equal(m.params[0], "Rajneesh");
+  assert.match(m.params[1], /Oct collections/); // reassigned work names itself in the template too
   assert.ok((await bot.store.find("pending_msgs", { phone: RAJNEESH })).some((r) => r.text.includes("Oct collections")));
 
   const rid = (await bot.store.findOne("tasks", { description: "Oct GSTR-2B reconciliation" })).id;

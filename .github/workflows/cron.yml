@@ -1,0 +1,13 @@
+# Vercel freezes the process between requests, so node-cron is off there
+# (instrumentation.js). This pokes the one endpoint that runs whatever slot is due.
+# CRON_URL secret = https://your-domain/api/cron?token=<WA_VERIFY_TOKEN>
+name: schedule
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+jobs:
+  poke:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -fsS "${{ secrets.CRON_URL }}"

@@ -6,7 +6,7 @@
 
 owner:
   name: Ankit
-  phone: "918287037611"   # <-- Ankit's MAIN WhatsApp number (the one he gives commands from), NOT the bot number
+  phone: "919718115480"   # <-- Ankit's MAIN WhatsApp number (the one he gives commands from), NOT the bot number
 
 businesses: [HoldPoint, Pulkit, Ryan, EPC, PHMG, Minenii, Personal]
 
@@ -50,5 +50,5 @@ people:
     aliases: [CA Piyush, Piyush ji]
 
   - name: Sachin
-    phone: "919267998339"
+    phone: "918287037611"
     business: Minenii
