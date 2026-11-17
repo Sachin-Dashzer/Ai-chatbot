@@ -40,13 +40,17 @@ Messages go out only when there is something to deliver. Unfinished tasks carry 
 | `reminder off Narendra` · `checkin Narendra mon thu` | Per-person settings (`checkin` sets the days an answer is expected; the pending list itself still goes out every work day) |
 | `pause Narendra till 25 nov` · `resume Narendra` | Leave mode (nothing gets through; held until they are back) |
 | `settings` · `boards` · `newlink EPC` | Show settings · board links · replace a leaked link |
+| `people` | The team with every number |
+| `add Rahul 919812345678 Ryan` | Add someone — reachable from that second, no deploy |
+| `edit Rahul group EPC` · `edit Rahul phone 919…` · `edit Rahul name …` · `edit Rahul alias CA Rahul` | Change one part |
+| `remove Rahul` | Stop everything reaching them; their history stays |
 
 ### Boards
 
 | Board | Who | What |
 |---|---|---|
 | One per business (EPC, Ryan, PHMG, Minenii, HoldPoint, Pulkit) | That team | View only. Needs attention first, tasks by person, done this week. Ankit's own tasks never shown |
-| Master | Ankit only | Tabs: Needs attention · Mine · **Messages** · each business. Tick to close, remark history per task, CSV backup. The Messages screen has a **group filter**: choose Ryan and only the people registered under Ryan are listed, and the merged thread holds only them |
+| Master | Ankit only | Tabs: Needs attention · Mine · **Messages** · **People** · each business. Tick to close, remark history per task, CSV backup. The Messages screen has a **group filter**: choose Ryan and only the people registered under Ryan are listed, and the merged thread holds only them. The People screen adds, edits and removes team members |
 
 ---
 
@@ -64,6 +68,8 @@ instrumentation.js              starts the daily scheduler when the server boots
 lib/bot.js                      all behaviour (tasks, buttons, replies, pending round, nudge, review, brief, commands)
 lib/ai.js  lib/whatsapp.js      AI and WhatsApp clients
 lib/boards.js lib/settings.js   board data · per-person settings
+lib/people.js                   the team list: seed, validate, add, edit, remove (one set of rules for the screen and the chat)
+app/board/[key]/people/route.js master board People screen writes      components/People.js
 lib/store/mongo.js  memory.js   MongoDB store · in-memory store (tests/demo)
 lib/scheduler.js lib/runtime.js lib/time.js lib/config.js lib/demo.js
 people.yaml  templates.json  scripts/create-templates.js  tests/
@@ -104,6 +110,8 @@ The console prints board links (master + each business) with sample tasks. Open 
 ### 4. Config
 - `cp .env.example .env` and fill every value.
 - `people.yaml`: team numbers are filled. **Add Ankit's main WhatsApp number as `owner`** (the number he sends commands from, not the bot number).
+
+  The file is the **seed**: the first run copies its people into the database, and from then on the team is edited from the People screen or from WhatsApp, with no redeploy. The file stays the record of the **owner** (never editable from a phone or a browser — a wrong number there locks him out of his own bot) and of the **list of businesses**.
 
 ### 5. Templates
 ```bash
@@ -148,6 +156,7 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{pending|review|nu
 - [ ] `nudge` → only non-repliers
 - [ ] `brief` → stuck item under "Pending on you"; Ankit replies "Himanshu 3 – approved" → Himanshu receives it
 - [ ] Master board → Messages → pick a group; only that group's people are listed
+- [ ] Master board → People → add someone; they appear on the list, can be assigned a task at once, and `people` in WhatsApp shows them. Edit their business, then remove them: the removal is refused while they still have an open task
 - [ ] `msgs Himanshu` → his messages word for word; master board → Messages tab shows them
 - [ ] `boards` → links; team board view-only; master tick works; CSV downloads
 - [ ] `pause Pulkit today` → nothing reaches him, everything is held; `resume Pulkit` → the next pending round delivers it
@@ -172,6 +181,6 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{pending|review|nu
 | Server down | UptimeRobot email; missing 8:30 brief |
 | Bill surprise | $10 limits on both AI accounts |
 | Bot SIM lapses | Keep it recharged; losing it can lose the WhatsApp number |
-| Adding a person | Add to people.yaml, push (Railway redeploys), they send "Hi" |
+| Adding a person | Master board → People → Add, or send `add Rahul 919812345678 Ryan`. Live in seconds, no deploy |
 
 **WhatsApp 24-hour rule:** free-form messages only reach people who messaged the bot in the last 24 hours, so the very first message to a new person can only be a template. The bot handles it: outside the window it holds the task, sends the approved `task_reminder` template with the task text as its second param, and on the person's reply releases only what the template could not carry - so nothing arrives twice. No one has to send "Hi" first. To open the window before there is a task to send, Ankit sends `start Narendra` (or `start all`).

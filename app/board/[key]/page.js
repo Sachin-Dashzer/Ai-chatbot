@@ -3,6 +3,7 @@ import { MASTER } from "../../../lib/boards.js";
 import { TeamBoard, MasterBoard } from "../../../components/Board";
 import Shell from "../../../components/Shell";
 import Chat from "../../../components/Chat";
+import People from "../../../components/People";
 import AutoRefresh from "../../../components/AutoRefresh";
 import { Mark } from "../../../components/ui";
 
@@ -41,6 +42,15 @@ export default async function BoardPage({ params, searchParams }) {
 
     // The chat lays out and scrolls its own two panes, so it gets the whole
     // area rather than the padded canvas the other tabs use.
+    if (data.tab === "people") {
+      return (
+        <Shell scope="Master board" groups={groups} title={data.title}>
+          <People data={data} boardKey={key} ok={sp?.ok || ""} err={sp?.err || ""} />
+          <Footer />
+        </Shell>
+      );
+    }
+
     if (data.tab === "messages") {
       return (
         <Shell scope="Master board" groups={groups} title={data.title} flush>

@@ -40,7 +40,7 @@ function NavBody({ groups }) {
     <nav className="flex-1 space-y-5 overflow-y-auto pb-4">
       {groups.map((g, gi) => (
         <div key={g.label || gi}>
-          {g.label && <p className="mb-1.5 px-2 text-small text-faint">{g.label}</p>}
+          {g.label && <p className="mb-1.5 px-2 text-small text-muted">{g.label}</p>}
           <div className="space-y-px">
             {g.items.map((it) => <NavRow key={it.href + it.label} item={it} />)}
           </div>

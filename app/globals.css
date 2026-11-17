@@ -28,7 +28,7 @@
   --primary: #008069;       /* the one filled button, WhatsApp's dark teal */
   --brand: #008069;         /* the header band: WhatsApp's own green */
   --brand-ink: #ffffff;
-  --brand-dim: #b8dfd5;     /* the second line on the band */
+  --brand-dim: #eff9f6;     /* the second line on the band: 4.6:1 on the green */
   --badge: #008069;         /* the unread badge: a count on a green pill */
   --badge-ink: #ffffff;
   --accent: #008069;        /* 4.7:1 on white; links and the selected state */

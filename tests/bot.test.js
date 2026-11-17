@@ -602,3 +602,79 @@ test("a task with a time: on the calendar, pinged 5 minutes before, once", async
   clock.at(18, 21);
   assert.deepEqual((await bot.runDue()).sent, []);
 });
+
+test("the team list: add, edit, remove from WhatsApp, with the rules that keep it usable", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  const say = async (t) => { await bot.handleMessage(text(OWNER, t)); return wa.last(OWNER).body; };
+
+  // people.yaml is the seed; from then on the store is the list.
+  assert.match(await say("people"), /Team \(4\)/);
+  assert.match(wa.last(OWNER).body, /Himanshu/);
+
+  // Add, and he is a known sender from the next message on - no restart, no redeploy.
+  const added = await say("add Rahul 919812345678 Ryan");
+  assert.match(added, /Rahul\* added to Ryan/);
+  assert.match(added, /919812345678/);
+  assert.equal(bot.d.byName("Rahul").phone, "919812345678");
+  assert.equal(bot.d.byPhone("919812345678").name, "Rahul");
+  await bot.handleMessage(text("919812345678", "Hi"));
+  assert.match(wa.last("919812345678").body, /connected to Ankit Desk/);
+
+  // And a task reaches him like anyone else.
+  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Rahul", business: "Ryan", task: "Send the Ryan fee register" }] });
+  await bot.handleMessage(text(OWNER, "Rahul fee register"));
+  assert.match(wa.last("919812345678").body, /fee register/);
+
+  // A ten-digit number borrows the owner's country code; a wrong one is refused, not stored.
+  assert.match(await say("add Vikas 9812345679 EPC"), /added to EPC/);
+  assert.equal(bot.d.byName("Vikas").phone, "919812345679");
+  assert.match(await say("add Nikhil 12345 EPC"), /5 digits/);
+  assert.match(await say("add Nikhil 919812345678 EPC"), /already Rahul's number/);
+  assert.match(await say("add Nikhil 919812345670 Nowhere"), /not one of the businesses/);
+  assert.match(await say("add Rahul 919812345670 Ryan"), /already on the list/);
+  // A name that is already a command would eat it.
+  assert.match(await say("add Status 919812345670 Ryan"), /command/);
+  assert.equal(bot.d.people.length, 6);
+
+  // Edit each part. A rename carries to everything that points at the name.
+  assert.match(await say("edit Rahul group EPC"), /moved to EPC/);
+  assert.equal(bot.d.byName("Rahul").business, "EPC");
+  assert.match(await say("edit Rahul alias CA Rahul, Rahul ji"), /also answers to: CA Rahul, Rahul ji/);
+  assert.equal(bot.d.byName("ca rahul").name, "Rahul");
+  assert.match(await say("edit Rahul name Rahul Verma"), /is now \*Rahul Verma\*/);
+  assert.equal((await bot.store.findOne("tasks", { description: "Send the Ryan fee register" })).owner, "Rahul Verma");
+  assert.match(await say("edit Rahul Verma phone 919812345611"), /now 919812345611/);
+  assert.equal(bot.d.byPhone("919812345611").name, "Rahul Verma");
+  assert.equal(bot.d.byPhone("919812345678"), null); // the old number is a stranger again
+
+  // Removing somebody who still has work open would leave that work with nobody on it.
+  const open = await bot.openTasks("Rahul Verma");
+  assert.match(await say("remove Rahul Verma"), /still has 1 open task/);
+  await bot.setTask(open[0].id, { status: "done", done_at: bot.nowIso() });
+  assert.match(await say("remove Rahul Verma"), /removed/);
+  assert.equal(bot.d.byName("Rahul Verma"), null);
+  assert.equal(bot.d.byPhone("919812345611"), null);
+  // The history stays, and nothing new reaches them.
+  assert.equal((await bot.store.findOne("tasks", { description: "Send the Ryan fee register" })).owner, "Rahul Verma");
+  clock.at(16, 11, 59);
+  const round = await bot.runPending();
+  assert.ok(!round.sent.some((x) => x.startsWith("Rahul")));
+
+  // The board's form sends every field at once and goes through the same rules. Only what
+  // actually changed is written, and one bad field saves nothing before it.
+  const saved = await bot.team.save("Vikas", { name: "Vikas", phone: "919812345679", group: "PHMG", alias: "Vikas ji" });
+  assert.match(saved.ok, /Saved group and other names for \*Vikas\*/);
+  assert.equal(bot.d.byName("Vikas").business, "PHMG");
+  assert.equal(bot.d.byName("vikas ji").name, "Vikas");
+  assert.match((await bot.team.save("Vikas", { phone: "919812345679" })).ok, /Nothing to change/);
+  const refused = await bot.team.save("Vikas", { group: "Ryan", phone: "123" });
+  assert.match(refused.error, /3 digits/);
+  // Whole or nothing: the good field beside the bad one is not written either.
+  assert.equal(bot.d.byName("Vikas").business, "PHMG");
+  assert.equal(bot.d.byName("Vikas").phone, "919812345679");
+
+  // "remove the old banner" is a task, not a command.
+  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Vikas", business: "EPC", task: "Remove the old banner" }] });
+  assert.match(await say("Vikas remove the old banner from the site"), /Assigned/);
+});
