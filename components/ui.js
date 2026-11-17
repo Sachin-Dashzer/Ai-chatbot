@@ -60,6 +60,12 @@ export const Icon = {
   user: (p) => (
     <svg {...S} {...p}><circle cx="8" cy="5.25" r="2.75" /><path d="M2.75 14c.6-2.8 2.7-4.25 5.25-4.25S12.65 11.2 13.25 14" /></svg>
   ),
+  calendar: (p) => (
+    <svg {...S} {...p}>
+      <rect x="2" y="3.25" width="12" height="10.75" rx="1.5" />
+      <path d="M2 6.75h12M5.5 1.75v2.5M10.5 1.75v2.5" />
+    </svg>
+  ),
   building: (p) => (
     <svg {...S} {...p}>
       <path d="M2.75 14V3.25a1 1 0 0 1 1-1h5.5a1 1 0 0 1 1 1V14" />
@@ -72,7 +78,7 @@ export const Icon = {
 export function Mark({ size = 20 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden
-      stroke="var(--accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h9A2.5 2.5 0 0 1 17 5.5v6a2.5 2.5 0 0 1-2.5 2.5H8.2L4.4 17.1a.5.5 0 0 1-.8-.4V14A2.5 2.5 0 0 1 3 11.5z" />
       <path d="M6.9 8.6l2 2 4.2-4.2" />
     </svg>

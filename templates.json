@@ -1,18 +1,16 @@
 [
   {
-    "name": "task_reminder",
+    "name": "task_update",
     "category": "UTILITY",
     "language": "en",
     "components": [
       {
         "type": "BODY",
-        "text": "Hello {{1}}, you have an update from Ankit Desk: {{2}}. Date: {{3}}. Reply to this message to see the full details.",
+        "text": "Hello {{1}}, you have a task update from Ankit. Reply to this message to see it.",
         "example": {
           "body_text": [
             [
-              "Rahul",
-              "submission of bank statements for GST filing",
-              "20 Nov 2026"
+              "Rahul"
             ]
           ]
         }

@@ -24,15 +24,14 @@ export const metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f6f3" },
-    { media: "(prefers-color-scheme: dark)", color: "#121211" },
-  ],
+  themeColor: "#008069", // the band, so the phone's own chrome matches it
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    // data-theme pins the light WhatsApp palette; "dark" switches it, and
+    // removing it follows the device.
+    <html lang="en" data-theme="light" className={`${sans.variable} ${mono.variable}`}>
       <body className="bg-ground font-sans text-body text-ink antialiased">{children}</body>
     </html>
   );

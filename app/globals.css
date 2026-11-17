@@ -3,52 +3,55 @@
 @tailwind utilities;
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Ankit Desk — design tokens.
-   One flat surface, no frame and no inset sheet: the sidebar, the top bar and
-   the work all sit on the same ground, separated by 1px rules, and the content
-   runs to the edge. The palette is cool and plain — neutral greys, a quiet
-   steel-blue accent used only on links and the one selected state, and colour
-   otherwise reserved for data and status.
-   The chat thread is the one exception: it keeps WhatsApp's own bubble sides
-   and colours, because that is the screen it is a record of.
+   Ankit Desk — design tokens, WhatsApp's palette.
+   The app wears the colours of the app it is a record of: a grey-green panel
+   on the left (#f0f2f5 light, #111b21 dark), white work beside it, teal
+   (#008069 / #00a884) as the one accent on links and the selected state, and
+   the thread keeping WhatsApp's own wallpaper and bubbles. Colour otherwise
+   stays reserved for data and status.
    ────────────────────────────────────────────────────────────────────────── */
 :root {
   color-scheme: light;
 
-  --ground: #ffffff;        /* the one surface everything sits on */
+  --ground: #ffffff;        /* the one surface the work sits on */
   --surface: #ffffff;
-  --raised: #f6f7f8;        /* a well: an inset panel, an incoming bubble's lane */
-  --active: #eef0f2;        /* the nav pill, a selected row */
-  --border: #e4e7ea;        /* panel and table edges */
-  --rule: #eef0f2;          /* row rules, one step lighter */
-  --control: #d2d7dc;       /* input and button borders, one step darker */
+  --raised: #f0f2f5;        /* WhatsApp's panel: the sidebar, the top bar, a well */
+  --active: #e9edef;        /* the nav pill, a selected row — WhatsApp's selected chat */
+  --border: #e9edef;        /* panel and table edges */
+  --rule: #f0f2f5;          /* row rules, one step lighter */
+  --control: #d1d7db;       /* input and button borders, one step darker */
 
-  --text: #111418;
-  --muted: #5a6269;         /* 6.2:1 on white */
-  --faint: #666d74;         /* meta: 5.2:1 on white, 4.6:1 on a selected row */
+  --text: #111b21;          /* WhatsApp's ink */
+  --muted: #54656f;         /* 5.9:1 on white — its icon grey */
+  --faint: #667781;         /* meta: 4.9:1 on white — its secondary text */
 
-  --primary: #16191d;       /* the one filled button, near-black */
-  --accent: #1f5f9e;        /* 6.6:1 on white; links and the selected state */
-  --accent-soft: #eaf1f8;
+  --primary: #008069;       /* the one filled button, WhatsApp's dark teal */
+  --brand: #008069;         /* the header band: WhatsApp's own green */
+  --brand-ink: #ffffff;
+  --brand-dim: #b8dfd5;     /* the second line on the band */
+  --badge: #008069;         /* the unread badge: a count on a green pill */
+  --badge-ink: #ffffff;
+  --accent: #008069;        /* 4.7:1 on white; links and the selected state */
+  --accent-soft: #e7f6f2;
 
-  --positive: #1e7b4f;
-  --negative: #c4242a;
+  --positive: #008069;
+  --negative: #b4252c;      /* #f15c6d is WhatsApp's red, too light on white */
   --warning: #92400e;
 
-  --pill-neutral-bg: #eef0f2; --pill-neutral-ink: #343a40;
-  --pill-positive-bg: #dcfae5; --pill-positive-ink: #04250e;
-  --pill-negative-bg: #ffedea; --pill-negative-ink: #831c1e;
-  --pill-warning-bg: #fffbeb; --pill-warning-ink: #92400e;
-  --pill-accent-bg: #eaf1f8; --pill-accent-ink: #11405f;
+  --pill-neutral-bg: #f0f2f5; --pill-neutral-ink: #3b4a54;
+  --pill-positive-bg: #d9fdd3; --pill-positive-ink: #04493a;
+  --pill-negative-bg: #ffeced; --pill-negative-ink: #8b1f25;
+  --pill-warning-bg: #fff6e0; --pill-warning-ink: #92400e;
+  --pill-accent-bg: #d7f1e9; --pill-accent-ink: #025144;
 
   /* The chat thread */
-  --chat-ground: #f2f4f5;   /* the lane the bubbles sit in */
+  --chat-ground: #efeae2;   /* WhatsApp's own wallpaper */
   --chat-in-bg: #ffffff;    /* what the team sent */
-  --chat-in-ink: #111418;
-  --chat-out-bg: #d9fdd3;   /* what the bot sent, WhatsApp's own green */
+  --chat-in-ink: #111b21;
+  --chat-out-bg: #d9fdd3;   /* what the bot sent */
   --chat-out-ink: #111b21;
-  --chat-meta: #5a6269;     /* the time and ticks inside an incoming bubble */
-  --chat-meta-out: #46564e; /* the same, on the green */
+  --chat-meta: #667781;     /* the time and ticks inside an incoming bubble */
+  --chat-meta-out: #557c66; /* the same, on the green */
   --chat-tick: #53bdeb;
 
   --radius-card: 8px;
@@ -70,51 +73,103 @@
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-:root.dark,
-html.dark {
-  color-scheme: dark;
-}
-
+/* The app is light by default — <html data-theme="light"> in app/layout.js
+   pins it, so a phone or a laptop set to dark still gets the light theme.
+   Swap that to data-theme="dark" (or drop the attribute to follow the system
+   again) and everything below takes over. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
 
-    /* The same plain palette after dark: neutral, a touch cool, no navy. */
-    --ground: #0e1012;
-    --surface: #0e1012;
-    --raised: #17191c;
-    --active: #212428;
-    --border: #23272b;
-    --rule: #1c1f22;
-    --control: #3a3f45;
+    /* WhatsApp after dark: the near-black blue-grey, the lighter panel, and
+       the teal turned up to #00a884 so it still carries on it. */
+    --ground: #0b141a;
+    --surface: #0b141a;
+    --raised: #111b21;
+    --active: #2a3942;
+    --border: #222e35;
+    --rule: #1d282f;
+    --control: #3b4a54;
 
-    --text: #f2f4f5;
-    --muted: #a9b0b6;
-    --faint: #8b9298;
+    --text: #e9edef;
+    --muted: #aebac1;
+    --faint: #8696a0;
 
-    --primary: #f2f4f5;
-    --accent: #6fb3f0;
-    --accent-soft: #13202c;
+    --primary: #00a884;
+    --brand: #1f2c33;       /* after dark the band drops to the panel, as the app does */
+    --brand-ink: #e9edef;
+    --brand-dim: #8696a0;
+    --badge: #00a884;
+    --badge-ink: #05221c;
+    --accent: #00a884;
+    --accent-soft: #0f2e28;
 
-    --positive: #5fc38b;
-    --negative: #ef8a8e;
-    --warning: #e0b464;
+    --positive: #06cf9c;
+    --negative: #f15c6d;
+    --warning: #e9b949;
 
-    --pill-neutral-bg: #23272b; --pill-neutral-ink: #d3d8dc;
-    --pill-positive-bg: #15291d; --pill-positive-ink: #6fcf98;
-    --pill-negative-bg: #2c1a1b; --pill-negative-ink: #f09a9d;
-    --pill-warning-bg: #29210f; --pill-warning-ink: #e0b464;
-    --pill-accent-bg: #13202c; --pill-accent-ink: #8cc5f5;
+    --pill-neutral-bg: #202c33; --pill-neutral-ink: #d1d7db;
+    --pill-positive-bg: #0d3028; --pill-positive-ink: #06cf9c;
+    --pill-negative-bg: #3a2022; --pill-negative-ink: #f3838f;
+    --pill-warning-bg: #332a12; --pill-warning-ink: #e9b949;
+    --pill-accent-bg: #0f2e28; --pill-accent-ink: #25d3a8;
 
-    --chat-ground: #15181a;
-    --chat-in-bg: #1f2429;
-    --chat-in-ink: #f2f4f5;
+    --chat-ground: #0b141a;
+    --chat-in-bg: #202c33;
+    --chat-in-ink: #e9edef;
     --chat-out-bg: #005c4b;
     --chat-out-ink: #e9edef;
-    --chat-meta: #9aa6ad;
-    --chat-meta-out: #c9e0d9;
+    --chat-meta: #8696a0;
+    --chat-meta-out: #a2c6b8;
     --chat-tick: #53bdeb;
   }
+}
+
+/* The same palette, chosen rather than inherited. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* WhatsApp after dark: the near-black blue-grey, the lighter panel, and
+     the teal turned up to #00a884 so it still carries on it. */
+  --ground: #0b141a;
+  --surface: #0b141a;
+  --raised: #111b21;
+  --active: #2a3942;
+  --border: #222e35;
+  --rule: #1d282f;
+  --control: #3b4a54;
+
+  --text: #e9edef;
+  --muted: #aebac1;
+  --faint: #8696a0;
+
+  --primary: #00a884;
+  --brand: #1f2c33;       /* after dark the band drops to the panel, as the app does */
+  --brand-ink: #e9edef;
+  --brand-dim: #8696a0;
+  --badge: #00a884;
+  --badge-ink: #05221c;
+  --accent: #00a884;
+  --accent-soft: #0f2e28;
+
+  --positive: #06cf9c;
+  --negative: #f15c6d;
+  --warning: #e9b949;
+
+  --pill-neutral-bg: #202c33; --pill-neutral-ink: #d1d7db;
+  --pill-positive-bg: #0d3028; --pill-positive-ink: #06cf9c;
+  --pill-negative-bg: #3a2022; --pill-negative-ink: #f3838f;
+  --pill-warning-bg: #332a12; --pill-warning-ink: #e9b949;
+  --pill-accent-bg: #0f2e28; --pill-accent-ink: #25d3a8;
+
+  --chat-ground: #0b141a;
+  --chat-in-bg: #202c33;
+  --chat-in-ink: #e9edef;
+  --chat-out-bg: #005c4b;
+  --chat-out-ink: #e9edef;
+  --chat-meta: #8696a0;
+  --chat-meta-out: #a2c6b8;
+  --chat-tick: #53bdeb;
 }
 
 /* ── Base ──────────────────────────────────────────────────────────────── */
@@ -141,6 +196,11 @@ time,
 ::selection {
   background: var(--accent-soft);
   color: var(--text);
+}
+
+.on-brand :focus-visible,
+.on-brand:focus-visible {
+  outline-color: var(--brand-ink);
 }
 
 :focus-visible {
@@ -226,22 +286,32 @@ details[open] > .navsheet {
 }
 
 /* ── Chat: a stable colour per person, the way a group thread names its
-   senders. Identity, not data — it never appears anywhere else. ────────── */
+   senders. WhatsApp's own sender palette, darkened where it has to carry on
+   white. Identity, not data — it never appears anywhere else. ──────────── */
 :root {
-  --who-0: #1f5f9e;
-  --who-1: #8a4b1e;
-  --who-2: #0f6b52;
-  --who-3: #9a3412;
-  --who-4: #155e75;
-  --who-5: #6b4f1d;
+  --who-0: #007a6c;
+  --who-1: #b4418e;
+  --who-2: #1f6bb8;
+  --who-3: #946200;
+  --who-4: #6d4ad0;
+  --who-5: #a04a2a;
 }
+:root[data-theme="dark"] {
+  --who-0: #00a884;
+  --who-1: #ff7a9a;
+  --who-2: #53bdeb;
+  --who-3: #dfb02c;
+  --who-4: #a98bff;
+  --who-5: #ffa07a;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
-    --who-0: #7fb3e8;
-    --who-1: #d9a06a;
-    --who-2: #6cc3a3;
-    --who-3: #e59b74;
-    --who-4: #7cc0d6;
-    --who-5: #cdb074;
+  :root:not([data-theme="light"]) {
+    --who-0: #00a884;
+    --who-1: #ff7a9a;
+    --who-2: #53bdeb;
+    --who-3: #dfb02c;
+    --who-4: #a98bff;
+    --who-5: #ffa07a;
   }
 }

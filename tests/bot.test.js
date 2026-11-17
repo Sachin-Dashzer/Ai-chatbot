@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { setup, makeClock, text, voice, VOICE, OWNER, HIMANSHU, SHALU, RAJNEESH, PULKIT } from "./helpers.js";
 import { extractJson } from "../lib/ai.js";
 import { cronDays } from "../lib/scheduler.js";
+import { workDaySet } from "../lib/time.js";
 
 test("example Monday: P1 instant, P2 batched, one check-in, one reply, nudge, brief, unblock", async () => {
   const clock = makeClock(); clock.at(16, 8);
@@ -75,16 +76,17 @@ test("example Monday: P1 instant, P2 batched, one check-in, one reply, nudge, br
   assert.equal((await bot.getTask(own)).status, "done");
 });
 
-test("closed 24h window: template carries the task, full text once the person replies", async () => {
+test("closed 24h window: template opens it, the task itself once the person replies", async () => {
   const clock = makeClock(); clock.at(16, 9);
   const { bot, wa } = setup(clock);
   await bot.handleMessage(text(OWNER, "Pulkit – Amazon report"));
   clock.at(16, 12);
   await bot.runBatch();
   let m = wa.last(PULKIT);
-  assert.equal(m.kind, "template"); assert.equal(m.name, "task_reminder");
-  assert.deepEqual(m.params, ["Pulkit", "1 new task", "16 Nov 2026"]);
+  assert.equal(m.kind, "template"); assert.equal(m.name, "task_update");
+  assert.deepEqual(m.params, ["Pulkit"]); // one body param: the approved template takes only the name
   assert.deepEqual(m.payloads, []); // no button on this template: replying is what releases the text
+  assert.equal(await bot.store.count("pending_msgs", { phone: PULKIT }), 1); // the task waits in full
   clock.at(16, 18);
   await bot.runCheckin();
   assert.equal(wa.to(PULKIT).filter((x) => x.kind === "template").length, 2);
@@ -95,8 +97,32 @@ test("closed 24h window: template carries the task, full text once the person re
   bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Shalu", task: "Call bank today", priority: "urgent" }] });
   await bot.handleMessage(text(OWNER, "Shalu call bank urgent"));
   m = wa.last(SHALU);
-  assert.equal(m.kind, "template"); assert.equal(m.name, "task_reminder");
-  assert.ok(m.params.some((p) => p.includes("Call bank today")) && m.params[0] === "Shalu");
+  assert.equal(m.kind, "template"); assert.deepEqual(m.params, ["Shalu"]);
+  // A P1 outside the window is held, not lost: the reply brings it through at once.
+  await bot.handleMessage(text(SHALU, "ji"));
+  assert.ok(wa.to(SHALU).some((x) => x.kind === "text" && x.body.includes("Call bank today")));
+});
+
+test("start: the owner opens the 24-hour window before there is a task to send", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  await bot.handleMessage(text(OWNER, "start Narendra"));
+  assert.match(wa.last(OWNER).body, /Don't know/); // not in people.yaml for the tests
+
+  await bot.handleMessage(text(OWNER, "start Pulkit"));
+  const m = wa.last(PULKIT);
+  assert.equal(m.kind, "template"); assert.equal(m.name, "task_update");
+  assert.deepEqual(m.params, ["Pulkit"]);
+  assert.match(wa.last(OWNER).body, /task_update sent/);
+
+  await bot.handleMessage(text(PULKIT, "hi")); // the window is open now
+  await bot.handleMessage(text(OWNER, "start Pulkit"));
+  assert.match(wa.last(OWNER).body, /window already open/);
+  assert.equal(wa.to(PULKIT).filter((x) => x.kind === "template").length, 1);
+
+  wa.failing = [SHALU];
+  await bot.handleMessage(text(OWNER, "start Shalu"));
+  assert.match(wa.last(OWNER).body, /NOT sent/); // a rejected template is reported, not swallowed
 });
 
 test("unknown numbers and duplicates ignored, unclear tasks reported", async () => {
@@ -229,8 +255,8 @@ test("boards and safeguards: privacy, attention, tick, P1, newlink, move, assign
   await bot.handleMessage(text(OWNER, `assign ${sid} Rajneesh`));
   assert.equal((await bot.getTask(sid)).owner, "Rajneesh");
   const m = wa.last(RAJNEESH);
-  assert.equal(m.kind, "template"); assert.equal(m.name, "task_reminder");
-  assert.ok(m.params.some((p) => p.includes("Oct collections")));
+  assert.equal(m.kind, "template"); assert.deepEqual(m.params, ["Rajneesh"]);
+  assert.ok((await bot.store.find("pending_msgs", { phone: RAJNEESH })).some((r) => r.text.includes("Oct collections")));
 
   const rid = (await bot.store.findOne("tasks", { description: "Oct GSTR-2B reconciliation" })).id;
   bot.ai.parseOwner = async () => ({ tasks: [], duplicates: [{ task_id: rid }] });
@@ -287,6 +313,10 @@ test("helpers: JSON extraction and cron day mapping", () => {
   assert.deepEqual(extractJson("none").tasks, []);
   assert.equal(cronDays("mon-sat"), "1-6");
   assert.equal(cronDays("mon,thu"), "1,4");
+  assert.deepEqual([...workDaySet("mon-sat")], ["mon", "tue", "wed", "thu", "fri", "sat"]);
+  assert.deepEqual([...workDaySet("mon,thu")], ["mon", "thu"]);
+  assert.deepEqual([...workDaySet("sat-tue")], ["sat", "sun", "mon", "tue"]); // a range that wraps the week
+  assert.deepEqual([...workDaySet("nonsense")], []);
 });
 
 test("cron endpoint: runs a due slot once, ignores off-window, off-day, bad token, live node-cron", async () => {

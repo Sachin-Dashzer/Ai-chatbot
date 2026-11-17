@@ -8,35 +8,6 @@ import { Mark } from "../../../components/ui";
 
 export const dynamic = "force-dynamic";
 
-// The master board's navigation: the three views Ankit works in, then one row
-// per business carrying the number of its tasks that need attention.
-async function masterNav(bot, key, tab) {
-  const open = await bot.openTasks();
-  const owner = bot.d.owner.name;
-  const attention = (list) => list.filter((t) => bot.boards.needsAttention(t)).length;
-
-  const work = [
-    { href: `/board/${key}?tab=attention`, label: "Needs attention", icon: "flag", active: tab === "attention",
-      count: attention(open), countTitle: "tasks stuck or overdue" },
-    { href: `/board/${key}?tab=mine`, label: "Mine", icon: "user", active: tab === "mine",
-      count: open.filter((t) => t.owner === owner).length, countTitle: "of your own tasks are open" },
-    { href: `/board/${key}?tab=messages`, label: "Messages", icon: "inbox", active: tab === "messages" },
-  ];
-
-  const businesses = bot.boards.teamBusinesses().map((b) => ({
-    href: `/board/${key}?tab=${b.toLowerCase()}`,
-    label: b,
-    active: tab === b.toLowerCase(),
-    count: attention(open.filter((t) => t.business === b)),
-    countTitle: `tasks needing attention in ${b}`,
-  }));
-
-  return [
-    { items: [{ href: "/", label: "Today", icon: "home" }, ...work] },
-    { label: "Businesses", items: businesses },
-  ];
-}
-
 export default async function BoardPage({ params, searchParams }) {
   const { key } = await params;
   const sp = await searchParams;
@@ -66,7 +37,7 @@ export default async function BoardPage({ params, searchParams }) {
   if (isMaster) {
     const tab = sp?.tab || "attention";
     const data = await bot.boards.masterBoard(tab, sp?.who || "");
-    const groups = await masterNav(bot, key, data.tab);
+    const groups = await bot.boards.nav(key, data.tab);
 
     // The chat lays out and scrolls its own two panes, so it gets the whole
     // area rather than the padded canvas the other tabs use.
@@ -101,7 +72,7 @@ export default async function BoardPage({ params, searchParams }) {
 function Footer() {
   return (
     <p className="mt-6 flex items-center gap-1.5 text-small text-faint">
-      <Mark size={14} />
+      <span className="text-[var(--accent)]"><Mark size={14} /></span>
       Ankit Desk · this page refreshes itself every 2 minutes
     </p>
   );

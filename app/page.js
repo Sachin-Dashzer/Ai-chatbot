@@ -67,35 +67,11 @@ export default async function Home() {
 
   const nowIso = bot.nowIso();
   const nowMin = toMin(nowIso.slice(11, 16));
-  const batch = s.batchTimes.split(",").map((t) => t.trim()).filter(Boolean);
-  const slots = [
-    { time: s.briefTime, what: "your brief" },
-    ...batch.map((t) => ({ time: t, what: "P2 tasks go out" })),
-    { time: s.checkinTime, what: "check-in" },
-    { time: s.nudgeTime, what: "reminder" },
-  ].map((x) => ({ ...x, min: toMin(x.time) })).sort((a, b) => a.min - b.min);
+  const slots = bot.boards.slots();
 
   const next = slots.find((x) => x.min > nowMin);
 
-  const nav = [
-    { items: [
-      { href: "/", label: "Today", icon: "home", active: true },
-      { href: `/board/${masterKey}?tab=attention`, label: "Needs attention", icon: "flag",
-        count: stats.attention, countTitle: "tasks stuck or overdue" },
-      { href: `/board/${masterKey}?tab=mine`, label: "Mine", icon: "user",
-        count: open.filter((t) => t.owner === owner).length, countTitle: "of your own tasks are open" },
-      { href: `/board/${masterKey}?tab=messages`, label: "Messages", icon: "inbox" },
-    ] },
-    // The same count the master board's own navigation shows: every task in
-    // that business, Ankit's included. The table below counts what the team
-    // sees on its own board, which never includes his.
-    { label: "Businesses", items: teams.map((t) => ({
-      href: `/board/${masterKey}?tab=${t.name.toLowerCase()}`,
-      label: t.name,
-      count: open.filter((x) => x.business === t.name && bot.boards.needsAttention(x)).length,
-      countTitle: `tasks needing attention in ${t.name}`,
-    })) },
-  ];
+  const nav = await bot.boards.nav(masterKey, "today");
 
   const finding = pending.length
     ? `${plural(pending.length, "task")} waiting on you${oldest >= 3 ? `, the oldest open ${plural(oldest, "day")}` : ""}.`
