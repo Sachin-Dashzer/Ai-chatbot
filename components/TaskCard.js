@@ -1,8 +1,8 @@
 // One task, as a list row. View-only on team boards; on the master board it
-// gets a tick, a P1/P2 control and its remark history.
+// gets a tick and its remark history.
 // The row uses the full width: what it is on the left, who and how old on one
 // right edge, the action last. Below lg it folds into two lines.
-import { Icon, Status, P1Mark } from "./ui";
+import { Icon, Status } from "./ui";
 
 function ActionForm({ boardKey, tab, id, action, children, className, label }) {
   return (
@@ -73,7 +73,6 @@ export default function TaskCard({ c, boardKey, tab, showBusiness = false, compa
       <div className={`min-w-0 flex-1 ${compact ? "" : "lg:flex lg:items-start lg:gap-5"}`}>
         <div className={`min-w-0 ${compact ? "" : "lg:flex-1"}`}>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            {c.p1 && <P1Mark />}
             {c.due && c.status !== "done" && <DueMark>{c.due}</DueMark>}
             {statusMark(c, ownerView)}
             <p className="min-w-0 text-body text-ink">
@@ -113,17 +112,6 @@ export default function TaskCard({ c, boardKey, tab, showBusiness = false, compa
         />
       </div>
 
-      {master && c.status !== "done" && (
-        <div className="flex-none pt-px">
-          <ActionForm
-            boardKey={boardKey} tab={tab} id={c.id} action={c.p1 ? "p2" : "p1"}
-            label={c.p1 ? `Move #${c.id} to P2` : `Make #${c.id} a P1`}
-            className="press inline-flex h-7 items-center whitespace-nowrap rounded-control border border-[var(--control)] px-2 text-meta text-muted hover:border-ink hover:text-ink"
-          >
-            {c.p1 ? "Make P2" : "Make P1"}
-          </ActionForm>
-        </div>
-      )}
     </div>
   );
 }

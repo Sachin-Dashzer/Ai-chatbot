@@ -104,17 +104,6 @@ export function Status({ dot = "muted", children }) {
   );
 }
 
-// P1 is priority, not status, so it is a mark of its own — the one red thing
-// in a row, and the product's own word for it.
-export function P1Mark() {
-  return (
-    <span title="P1: delivered the moment you send it"
-      className="inline-flex h-5 flex-none items-center whitespace-nowrap rounded-chip border border-[var(--negative)] px-1 text-small font-medium leading-none text-[var(--negative)]">
-      P1
-    </span>
-  );
-}
-
 // ── The KPI strip ────────────────────────────────────────────────────────
 // One container split by 1px dividers. Label above the value; a caption that
 // names the window the figure is measured over. No icons, no sparklines.

@@ -36,7 +36,7 @@ export default async function BoardPage({ params, searchParams }) {
 
   if (isMaster) {
     const tab = sp?.tab || "attention";
-    const data = await bot.boards.masterBoard(tab, sp?.who || "");
+    const data = await bot.boards.masterBoard(tab, sp?.who || "", sp?.group || "");
     const groups = await bot.boards.nav(key, data.tab);
 
     // The chat lays out and scrolls its own two panes, so it gets the whole

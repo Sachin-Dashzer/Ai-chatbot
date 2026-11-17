@@ -85,7 +85,7 @@ export default async function CalendarPage({ searchParams }) {
   const isWork = work.has(weekdayOf(sel));
   const slots = isWork ? bot.boards.slots() : [];
 
-  // Who the check-in reaches on that day, and who is paused through it.
+  // Who is expected to report on that day, and who is paused through it.
   const due = [];
   const paused = [];
   for (const p of bot.d.people) {
@@ -253,9 +253,9 @@ export default async function CalendarPage({ searchParams }) {
                     <dt className="w-[4.5rem] shrink-0 text-body tabular text-ink">{x.time}</dt>
                     <dd className="min-w-0 text-body text-muted">
                       {x.what}
-                      {x.what === "check-in" && (
+                      {x.what === "pending lists go out" && (
                         <span className="mt-0.5 block text-small text-faint">
-                          {due.length ? due.join(", ") : "nobody is on check-in"}
+                          {due.length ? `reply expected from ${due.join(", ")}` : "no reply expected today"}
                         </span>
                       )}
                     </dd>
@@ -265,7 +265,7 @@ export default async function CalendarPage({ searchParams }) {
             )}
             {paused.length > 0 && (
               <p className="mt-3 border-t border-rule pt-3 text-small text-faint">
-                Paused on this day: {paused.join(", ")}. Only P1 tasks reach them.
+                Paused on this day: {paused.join(", ")}. Nothing reaches them until they are back.
               </p>
             )}
           </Panel>

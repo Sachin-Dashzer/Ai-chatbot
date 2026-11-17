@@ -1,4 +1,4 @@
-// Master board actions: tick done, make P1 / P2. Only the master link may do this.
+// Master board actions: tick a task done. Only the master link may do this.
 import { getBot } from "../../../../lib/runtime.js";
 import { MASTER } from "../../../../lib/boards.js";
 

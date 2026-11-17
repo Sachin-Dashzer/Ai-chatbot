@@ -51,7 +51,7 @@ if (skipped) console.log(`Skipped ${skipped} already present or never sent.`);
 if (orphan) console.log(`Skipped ${orphan} note(s) whose task no longer exists.`);
 if (!write) console.log("Nothing was written. Re-run with --write to apply.");
 console.log(
-  "\nCheck-ins, batches and P1 pushes sent before the log existed cannot be recovered:\n" +
+  "\nCheck-ins, pending lists and task pushes sent before the log existed cannot be recovered:\n" +
   "their text was built at send time and never stored. Everything the bot sends from now on\n" +
   "is recorded in full."
 );

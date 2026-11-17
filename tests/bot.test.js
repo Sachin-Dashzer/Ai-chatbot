@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { setup, makeClock, text, voice, VOICE, OWNER, HIMANSHU, SHALU, RAJNEESH, PULKIT, tap } from "./helpers.js";
+import { setup, makeClock, text, voice, VOICE, OWNER, HIMANSHU, SHALU, RAJNEESH, PULKIT, tap, btn } from "./helpers.js";
 import { extractJson } from "../lib/ai.js";
 import { cronDays } from "../lib/scheduler.js";
 import { workDaySet } from "../lib/time.js";
 
-test("example Monday: P1 instant, P2 batched, one check-in, one reply, nudge, brief, unblock", async () => {
+test("example Monday: every task goes straight out, one list per round, reply, nudge, review, brief, unblock", async () => {
   const clock = makeClock(); clock.at(16, 8);
   const { bot, wa } = setup(clock);
   for (const p of [HIMANSHU, SHALU, RAJNEESH, PULKIT]) await bot.handleMessage(text(p, "Hi"));
@@ -13,35 +13,57 @@ test("example Monday: P1 instant, P2 batched, one check-in, one reply, nudge, br
 
   clock.at(16, 9, 10);
   await bot.handleMessage(voice(OWNER, "v1"));
-  assert.match(wa.last(HIMANSHU).body, /P1/);
-  assert.match(wa.last(HIMANSHU).body, /Galaxy Royal/);
+  // Straight to Himanshu, with the three taps under it. No queue, no clock.
+  const first = wa.last(HIMANSHU);
+  assert.equal(first.kind, "buttons");
+  assert.match(first.body, /New task from Ankit/);
+  assert.match(first.body, /Galaxy Royal/);
+  assert.deepEqual(first.buttons.map((b) => b.title), ["✅ Done", "⏳ Working", "✍️ Remark"]);
   assert.match(wa.last(OWNER).body, /Assigned/);
 
   clock.at(16, 11, 30);
   const before = Object.fromEntries([HIMANSHU, SHALU, RAJNEESH].map((p) => [p, wa.to(p).length]));
   await bot.handleMessage(voice(OWNER, "v2"));
-  for (const p of Object.keys(before)) assert.equal(wa.to(p).length, before[p]);
+  assert.equal(wa.to(HIMANSHU).length, before[HIMANSHU] + 2); // two of the five are his
+  assert.equal(wa.to(SHALU).length, before[SHALU] + 1);
+  assert.equal(wa.to(RAJNEESH).length, before[RAJNEESH] + 1);
   assert.match(wa.last(OWNER).body, /Assigned \(5\)/);
 
-  clock.at(16, 12);
-  await bot.runBatch();
-  assert.match(wa.last(HIMANSHU).body, /New tasks from Ankit \(2\)/);
-  assert.match(wa.last(SHALU).body, /New task from Ankit \(1\)/);
-  assert.equal(wa.to(HIMANSHU).length, before[HIMANSHU] + 1);
-
-  clock.at(16, 15, 15);
-  await bot.handleMessage(text(OWNER, "Pulkit – last 7 days Amazon ad spend report"));
-  clock.at(16, 16);
-  await bot.runBatch();
-  assert.match(wa.last(PULKIT).body, /Amazon/);
-
-  clock.at(16, 18);
-  const b4 = wa.to(HIMANSHU).length;
-  await bot.runCheckin();
-  assert.equal(wa.to(HIMANSHU).length, b4 + 1);
+  // 11:59: the list of what is still on them, so nothing is forgotten by lunch.
+  clock.at(16, 11, 59);
+  const round = await bot.runPending();
+  assert.deepEqual(round.failed, []);
+  assert.match(wa.last(HIMANSHU).body, /Pending with you \(3\)/);
+  assert.equal(wa.last(HIMANSHU).kind, "text");          // three tasks: a tap would be ambiguous
+  assert.equal(wa.last(SHALU).kind, "buttons");          // one task: it keeps its buttons
+  assert.equal(wa.to(PULKIT).length, 0);                 // nothing open, so nothing sent
   const chk = wa.last(HIMANSHU).body;
   assert.ok(chk.includes("1. #") && chk.includes("2. #") && chk.includes("3. #") && chk.includes("Reply in ONE message"));
-  assert.match(wa.last(OWNER).body, /Your day/);
+  // "1 done" has to mean the 1 he is looking at, so the numbering follows the list just sent.
+  const numbering = await bot.store.find("checkin_items", { owner: "Himanshu" }, { sort: { idx: 1 } });
+  assert.deepEqual(numbering.map((r) => r.idx), [1, 2, 3]);
+  assert.deepEqual(numbering.map((r) => r.task_id), (await bot.openTasks("Himanshu")).map((t) => t.id));
+
+  clock.at(16, 15, 15);
+  await bot.handleMessage(text(OWNER, "Pulkit - last 7 days Amazon ad spend report"));
+  assert.match(wa.last(PULKIT).body, /Amazon/);          // instantly, not at 4 PM
+
+  clock.at(16, 16);
+  await bot.runPending();
+  assert.match(wa.last(PULKIT).body, /Pending with you \(1\)/);
+
+  // 6 PM is Ankit's alone now. The team were asked for their status with their list, so they
+  // are not sent the same tasks a second time this evening.
+  clock.at(16, 18);
+  const b4 = wa.to(HIMANSHU).length;
+  await bot.runReview();
+  assert.equal(wa.to(HIMANSHU).length, b4);
+  // His day, then everything he handed out today.
+  const six = wa.last(OWNER).body;
+  assert.match(six, /Your day/);
+  assert.match(six, /ASSIGNED TODAY \(6\)/);
+  assert.match(six, /\*Himanshu\* · HoldPoint · 3 tasks/);
+  assert.match(six, /Score: 0 of 6 done/);
 
   await bot.handleMessage(voice(HIMANSHU, "h1"));
   const ack = wa.last(HIMANSHU).body;
@@ -61,13 +83,15 @@ test("example Monday: P1 instant, P2 batched, one check-in, one reply, nudge, br
   await bot.runBrief();
   const brief = wa.last(OWNER).body;
   assert.ok(brief.includes("PENDING ON YOU (2)") && brief.includes("rate approval") && brief.includes("Goodbite"), brief);
+  assert.ok(brief.includes("OPEN A WEEK OR MORE (0)"), brief);
   assert.ok(brief.includes("HoldPoint: 1 done | 1 working | 1 stuck"), brief);
   assert.ok(brief.includes("EPC: 1 done"), brief);
   assert.ok(brief.includes("NO UPDATE YESTERDAY:* Pulkit"), brief);
 
   const stuck = (await bot.store.findOne("tasks", { stuck_on: "ankit" })).id;
-  await bot.handleMessage(text(OWNER, `Himanshu ${stuck} – rate 4,500 per visit approved`));
+  await bot.handleMessage(text(OWNER, `Himanshu ${stuck} - rate 4,500 per visit approved`));
   assert.match(wa.last(HIMANSHU).body, /rate 4,500/);
+  assert.equal(wa.last(HIMANSHU).kind, "buttons"); // he can close it with a tap there and then
   assert.match(wa.last(OWNER).body, /moved back to working/);
   assert.equal((await bot.getTask(stuck)).status, "working");
 
@@ -76,51 +100,158 @@ test("example Monday: P1 instant, P2 batched, one check-in, one reply, nudge, br
   assert.equal((await bot.getTask(own)).status, "done");
 });
 
-test("closed 24h window: the template carries the task, no button, the reply does not repeat it", async () => {
+test("closed 24h window: the template carries what it can, and the full message still arrives", async () => {
   const clock = makeClock(); clock.at(16, 9);
   const { bot, wa } = setup(clock);
-  await bot.handleMessage(text(OWNER, "Pulkit – Amazon report"));
-  clock.at(16, 12);
-  await bot.runBatch();
+  await bot.handleMessage(text(OWNER, "Pulkit - Amazon report"));
   let m = wa.last(PULKIT);
-  // The shape Meta approved: name, the work, a due date. The task is in the body, so the
-  // person reads it without tapping or replying, and there is no button to tap.
+  // Outside the window only the approved template can reach him, so the work rides in its body.
   assert.equal(m.kind, "template"); assert.equal(m.name, "task_reminder");
   assert.equal(m.params[0], "Pulkit");
   assert.match(m.params[1], /Amazon/);
   assert.equal(m.params.length, 3);
   assert.deepEqual(m.payloads, []);
-  assert.equal(await bot.store.count("pending_msgs", { phone: PULKIT }), 1); // held, in case it was cut
-  clock.at(16, 18);
-  await bot.runCheckin();
+  assert.equal(await bot.store.count("pending_msgs", { phone: PULKIT }), 1);
+
+  clock.at(16, 16);
+  await bot.runPending();
   assert.equal(wa.to(PULKIT).filter((x) => x.kind === "template").length, 2);
-  await bot.handleMessage(text(PULKIT, "ok"));  // any reply opens the window and flushes what was held
-  // Both templates already carried this text, so the flush must not repeat it.
-  const texts = wa.to(PULKIT).filter((x) => x.kind === "text").map((x) => x.body);
-  assert.ok(!texts.some((t) => t.includes("New task") || t.includes("Your open tasks")));
-  assert.equal(await bot.store.count("pending_msgs", { phone: PULKIT }), 0); // dequeued all the same
+
+  // The reply opens the window. A template parameter cannot carry a newline, so what it showed
+  // him was the message flattened onto one line - not the message. Both are now sent in full.
+  await bot.handleMessage(text(PULKIT, "ok"));
+  assert.ok(wa.to(PULKIT).some((x) => x.kind === "buttons" && x.body.includes("Amazon") && x.body.includes("New task from Ankit")));
+  // One task, so his list keeps its buttons: it comes back as the interactive message.
+  assert.ok(wa.to(PULKIT).some((x) => x.kind === "buttons" && x.body.includes("Pending with you")));
+  assert.equal(await bot.store.count("pending_msgs", { phone: PULKIT }), 0);
 
   clock.at(18, 10);
-  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Shalu", task: "Call bank today", priority: "urgent" }] });
-  await bot.handleMessage(text(OWNER, "Shalu call bank urgent"));
+  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Shalu", task: "Call bank today" }] });
+  await bot.handleMessage(text(OWNER, "Shalu call bank now"));
   m = wa.last(SHALU);
   assert.equal(m.kind, "template"); assert.equal(m.params[0], "Shalu");
-  assert.match(m.params[1], /Call bank today/); // a P1 names the task in the template too
-  // The P1 was named in the template, so the reply does not send it a second time.
+  assert.match(m.params[1], /Call bank today/);
   await bot.handleMessage(text(SHALU, "ji"));
-  assert.ok(!wa.to(SHALU).some((x) => x.kind === "text" && x.body.includes("Call bank today")));
+  assert.ok(wa.to(SHALU).some((x) => x.kind === "buttons" && x.body.includes("Call bank today")));
   // A tap on an older template that still had a button stays harmless.
   await bot.handleMessage(tap(SHALU, "view"));
   assert.match(wa.last(SHALU).body, /all caught up/);
 
-  // Longer than a template parameter holds: it is cut there, so the full text
-  // must still arrive as plain text the moment the window opens.
+  // Longer than a template parameter holds: cut there, so the full text must still arrive.
   clock.at(18, 11);
   const long = "Z".repeat(1200);
   await bot.deliver(bot.d.byName("Pulkit"), long);
   assert.equal(wa.last(PULKIT).kind, "template");
   await bot.handleMessage(text(PULKIT, "ok"));
   assert.ok(wa.to(PULKIT).some((x) => x.kind === "text" && x.body.includes(long)));
+});
+
+test("buttons: a tap is a status update, and Remark takes the words that follow", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  await bot.handleMessage(text(HIMANSHU, "Hi"));
+  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Himanshu", business: "HoldPoint",
+    task: "Send the Galaxy Royal invoice with the revised AMC rate of 4,500 per visit" }] });
+  await bot.handleMessage(text(OWNER, "Himanshu invoice"));
+  const t = await bot.store.findOne("tasks", { owner: "Himanshu" });
+  // The whole instruction reaches him, not a fifteen-word label of it.
+  assert.match(wa.last(HIMANSHU).body, /revised AMC rate of 4,500 per visit/);
+  assert.deepEqual(wa.last(HIMANSHU).buttons.map((b) => b.id), [`st:${t.id}:done`, `st:${t.id}:working`, `st:${t.id}:remark`]);
+
+  await bot.handleMessage(btn(HIMANSHU, `st:${t.id}:working`));
+  assert.equal((await bot.getTask(t.id)).status, "working");
+  assert.match(wa.last(HIMANSHU).body, /Noted – \*#\d+\* is working/);
+  // A tap counts as today's answer, so the 7 PM reminder leaves him alone.
+  assert.equal((await bot.store.findOne("checkins", { date: bot.today(), owner: "Himanshu" })).replied, 1);
+  clock.at(16, 19);
+  const n = wa.to(HIMANSHU).length;
+  await bot.runNudge();
+  assert.equal(wa.to(HIMANSHU).length, n);
+
+  // Remark: the bot asks, and the next message he sends lands on that task and on Ankit.
+  await bot.handleMessage(btn(HIMANSHU, `st:${t.id}:remark`));
+  assert.match(wa.last(HIMANSHU).body, /Send your remark now/);
+  await bot.handleMessage(text(HIMANSHU, "noted, client ne Thursday maanga hai"));
+  assert.match(wa.last(OWNER).body, /Himanshu\* on #\d+/);
+  assert.match(wa.last(OWNER).body, /Thursday maanga hai/);
+  assert.match((await bot.getTask(t.id)).note, /Thursday maanga hai/);
+  const notes = await bot.store.find("task_notes", { task_id: t.id });
+  assert.ok(notes.some((r) => r.status === "Remark" && r.text.includes("Thursday")));
+  assert.equal(await bot.store.count("awaiting_remark", { person: "Himanshu" }), 0);
+
+  await bot.handleMessage(btn(HIMANSHU, `st:${t.id}:done`));
+  assert.equal((await bot.getTask(t.id)).status, "done");
+  // A tap on something already closed changes nothing.
+  await bot.handleMessage(btn(HIMANSHU, `st:${t.id}:done`));
+  assert.match(wa.last(HIMANSHU).body, /not one of your open tasks/);
+
+  // A Remark tap nobody followed up on expires with the day, so tomorrow's "1 done" is read
+  // as the status reply it is and not as a remark on a task he has forgotten about.
+  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Himanshu", business: "HoldPoint", task: "Collect the Palm Grove deposit" }] });
+  await bot.handleMessage(text(OWNER, "one more"));
+  const t2 = await bot.store.findOne("tasks", { description: "Collect the Palm Grove deposit" });
+  await bot.handleMessage(btn(HIMANSHU, `st:${t2.id}:remark`));
+  clock.at(17, 10);
+  bot.ai.parseStatus = async () => ({ updates: [{ task_id: t2.id, status: "done" }] });
+  await bot.handleMessage(text(HIMANSHU, "1 done"));
+  assert.equal((await bot.getTask(t2.id)).status, "done");
+});
+
+test("6 PM overview: everything assigned today, by person, group and status", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  for (const p of [HIMANSHU, SHALU]) await bot.handleMessage(text(p, "Hi"));
+  bot.ai.parseOwner = async () => ({ tasks: [
+    { owner: "Himanshu", business: "HoldPoint", task: "Send Galaxy Royal invoice" },
+    { owner: "Himanshu", business: "HoldPoint", task: "Fix Sector 76 site visit" },
+    { owner: "Shalu", business: "Ryan", task: "Match October collections" }] });
+  await bot.handleMessage(text(OWNER, "three tasks"));
+  const ids = (await bot.store.find("tasks", {}, { sort: { id: 1 } })).map((t) => t.id);
+  await bot.handleMessage(btn(HIMANSHU, `st:${ids[0]}:done`));
+  await bot.handleMessage(btn(SHALU, `st:${ids[2]}:working`));
+
+  await bot.handleMessage(text(OWNER, "today"));
+  const o = wa.last(OWNER).body;
+  assert.match(o, /ASSIGNED TODAY \(3\)/);
+  assert.match(o, /\*Himanshu\* · HoldPoint · 2 tasks/);
+  assert.match(o, /\*Shalu\* · Ryan · 1 task/);
+  assert.match(o, /Score: 1 of 3 done/);
+  assert.match(o, /1 working/);
+  assert.match(o, /No word yet on: #\d+ Himanshu/);
+
+  // And it is the tail of the 6 PM message, whether or not Ankit has tasks of his own.
+  clock.at(16, 18);
+  await bot.runReview();
+  const six = wa.last(OWNER).body;
+  assert.match(six, /Nothing of your own today/);
+  assert.match(six, /ASSIGNED TODAY \(3\)/);
+});
+
+test("messages board: a group filter opens only the people registered under it", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot } = setup(clock);
+  await bot.handleMessage(text(SHALU, "Ryan ka collection kal bhej dunga"));
+  await bot.handleMessage(text(HIMANSHU, "HoldPoint ka invoice bhej diya"));
+
+  const all = await bot.boards.masterBoard("messages", "");
+  assert.deepEqual(all.chats.map((c) => c.name).sort(), ["Himanshu", "Pulkit", "Rajneesh", "Shalu"]);
+  assert.ok(all.groups.includes("Ryan") && all.groups.includes("HoldPoint") && !all.groups.includes("Personal"));
+  assert.equal(all.group, "");
+
+  const ryan = await bot.boards.masterBoard("messages", "", "Ryan");
+  assert.deepEqual(ryan.chats.map((c) => c.name), ["Shalu"]);
+  assert.equal(ryan.group, "Ryan");
+  assert.match(ryan.title, /Ryan/);
+
+  // The merged thread of a group holds only that group.
+  const thread = JSON.stringify(await bot.boards.masterBoard("messages", "~all", "Ryan"));
+  assert.ok(thread.includes("Ryan ka collection") && !thread.includes("HoldPoint ka invoice"));
+
+  // Someone outside the chosen group cannot stay open in it.
+  const mixed = await bot.boards.masterBoard("messages", "Himanshu", "Ryan");
+  assert.equal(mixed.selected, "");
+  // An unknown group is ignored rather than emptying the screen.
+  assert.equal((await bot.boards.masterBoard("messages", "", "Nowhere")).chats.length, 4);
 });
 
 test("start: the owner opens the 24-hour window before there is a task to send", async () => {
@@ -132,7 +263,6 @@ test("start: the owner opens the 24-hour window before there is a task to send",
   await bot.handleMessage(text(OWNER, "start Pulkit"));
   const m = wa.last(PULKIT);
   assert.equal(m.kind, "template"); assert.equal(m.name, "task_reminder");
-  // Nothing is held for him yet, so the work parameter falls back to a neutral phrase.
   assert.deepEqual(m.params, ["Pulkit", "a task update", "today"]);
   assert.match(wa.last(OWNER).body, /task_reminder sent/);
 
@@ -159,7 +289,7 @@ test("unknown numbers and duplicates ignored, unclear tasks reported", async () 
   assert.equal(wa.sent.length, n);
 });
 
-test("per-person settings: reminder off, check-in days, pause with P1 still delivered", async () => {
+test("per-person settings: reminder off, reporting days, and a pause that holds everything", async () => {
   const clock = makeClock(); clock.at(16, 9); // Monday
   const { bot, wa } = setup(clock);
   for (const p of [HIMANSHU, SHALU, RAJNEESH, PULKIT]) await bot.handleMessage(text(p, "Hi"));
@@ -172,33 +302,42 @@ test("per-person settings: reminder off, check-in days, pause with P1 still deli
   await bot.handleMessage(text(OWNER, "settings"));
   assert.match(wa.last(OWNER).body, /Shalu: check-in daily · reminder off/);
 
+  const nPulkit = wa.to(PULKIT).length;
   bot.ai.parseOwner = async () => ({ tasks: [
-    { owner: "Shalu", task: "Oct collections", priority: "normal" },
-    { owner: "Rajneesh", task: "GSTR-2B recon", priority: "normal" },
-    { owner: "Pulkit", task: "Ad spend report", priority: "normal" },
-    { owner: "Pulkit", task: "Call courier now", priority: "urgent" }] });
+    { owner: "Shalu", task: "Oct collections" },
+    { owner: "Rajneesh", task: "GSTR-2B recon" },
+    { owner: "Pulkit", task: "Ad spend report" },
+    { owner: "Pulkit", task: "Call courier now" }] });
   await bot.handleMessage(text(OWNER, "four tasks"));
   assert.match(wa.last(OWNER).body, /held – Pulkit is paused/);
-  assert.match(wa.last(PULKIT).body, /Call courier now/);
-  const nPulkit = wa.to(PULKIT).length;
+  assert.equal(wa.to(PULKIT).length, nPulkit); // on leave means on leave: nothing gets through
+  // Held means unsent, not queued twice: the tasks sit at notified:0 and the first pending
+  // round after the pause carries them.
+  assert.equal(await bot.store.count("tasks", { owner: "Pulkit", notified: 0 }), 2);
 
-  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Himanshu", task: "Check GST for EPC", priority: "normal" }] });
+  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Himanshu", task: "Check GST for EPC" }] });
   await bot.handleMessage(text(OWNER, "check GST for EPC Himanshu"));
   assert.match(wa.last(OWNER).body, /Assigned/);
 
-  clock.at(16, 12); await bot.runBatch();
-  clock.at(16, 18); await bot.runCheckin();
-  assert.match(wa.last(RAJNEESH).body, /Your open tasks/);
+  clock.at(16, 11, 59); await bot.runPending();
+  assert.equal(wa.to(PULKIT).length, nPulkit); // still paused
+  assert.match(wa.last(RAJNEESH).body, /Pending with you/);
+  // Monday is one of his reporting days, so an answer is expected and tracked.
+  assert.equal(await bot.store.count("checkins", { date: "2026-11-16", owner: "Rajneesh" }), 1);
   clock.at(16, 19); await bot.runNudge();
   assert.ok(!wa.to(SHALU).some((m) => m.kind === "text" && m.body.startsWith("Reminder")));
   assert.equal(wa.to(PULKIT).length, nPulkit);
 
-  clock.at(17, 12); await bot.runBatch();
+  clock.at(17, 11, 59); await bot.runPending(); // the pause is over: what was held goes out
   const lp = wa.last(PULKIT);
   assert.ok(lp.kind === "template" || lp.body.includes("Ad spend report"));
-  const nRaj = wa.to(RAJNEESH).length;
-  clock.at(17, 18); await bot.runCheckin();
-  assert.equal(wa.to(RAJNEESH).length, nRaj);
+  // Tuesday is not one of Rajneesh's reporting days: he still sees what is pending on him,
+  // but no answer is owed, so nothing can count as a missed update. A day after his last
+  // message the window has closed, so it reaches him as the template plus a held list.
+  const lr = wa.last(RAJNEESH);
+  assert.ok(lr.kind === "template" || lr.body.includes("Pending with you"));
+  assert.ok((await bot.store.find("pending_msgs", { phone: RAJNEESH })).some((r) => r.text.includes("Pending with you")));
+  assert.equal(await bot.store.count("checkins", { date: "2026-11-17", owner: "Rajneesh" }), 0);
 
   await bot.handleMessage(text(OWNER, "pause Himanshu till 20 nov"));
   assert.match(wa.last(OWNER).body, /paused 17 Nov–20 Nov/);
@@ -210,18 +349,18 @@ test("Ankit's own day: score, natural update, list-number reply, yesterday in br
   const clock = makeClock(); clock.at(16, 9);
   const { bot, wa } = setup(clock);
   const plan = { tasks: [
-    { owner: "me", business: "PHMG", task: "Complete CRM templates for PHMG staff", priority: "urgent" },
-    { owner: "me", business: "HoldPoint", task: "Visit Sharma ji at Sector 76", priority: "normal" },
-    { owner: "me", business: "Personal", task: "Meet bank manager about Minenii", priority: "normal" }] };
+    { owner: "me", business: "PHMG", task: "Complete CRM templates for PHMG staff" },
+    { owner: "me", business: "HoldPoint", task: "Visit Sharma ji at Sector 76" },
+    { owner: "me", business: "Personal", task: "Meet bank manager about Minenii" }] };
   bot.ai.parseOwner = async (t, open) => t.includes("CRM") ? plan
     : { tasks: [], own_updates: [{ task_id: open.find((x) => x.description.includes("CRM")).id, status: "done" }] };
-  await bot.handleMessage(text(OWNER, "Me – CRM templates urgent, visit Sharma ji, meet bank manager"));
+  await bot.handleMessage(text(OWNER, "Me - CRM templates, visit Sharma ji, meet bank manager"));
   assert.match(wa.last(OWNER).body, /Assigned \(3\)/);
   clock.at(16, 14);
   await bot.handleMessage(text(OWNER, "templates ho gaye"));
   assert.match(wa.last(OWNER).body, /Today: 1 of 3 done/);
   clock.at(16, 18);
-  await bot.runCheckin();
+  await bot.runReview();
   const msg = wa.last(OWNER).body;
   assert.ok(msg.includes("1 of 3 done") && msg.includes("✓ #") && msg.includes("1. #") && msg.includes("2. #"));
   await bot.handleMessage(text(OWNER, "1 done"));
@@ -232,29 +371,31 @@ test("Ankit's own day: score, natural update, list-number reply, yesterday in br
   assert.ok(brief.includes("YOUR DAY YESTERDAY: 2 of 3 done") && brief.includes("Meet bank manager"), brief);
 });
 
-test("boards and safeguards: privacy, attention, tick, P1, newlink, move, assign, duplicates, reopen, CSV", async () => {
+test("boards and safeguards: privacy, attention, tick, newlink, move, assign, duplicates, reopen, CSV", async () => {
   const clock = makeClock(); clock.at(16, 9);
   const { bot, wa } = setup(clock);
   bot.s.baseUrl = "https://desk.example.com";
   bot.ai.parseOwner = async () => ({ tasks: [
-    { owner: "Rajneesh", business: "EPC", task: "Oct GSTR-2B reconciliation", priority: "urgent" },
-    { owner: "Shalu", business: "Ryan", task: "Oct collections", priority: "normal" },
-    { owner: "me", business: "EPC", task: "EPC GST templates", priority: "urgent" },
-    { owner: "me", business: "Personal", task: "Buy mediclaim", priority: "normal" }] });
+    { owner: "Rajneesh", business: "EPC", task: "Oct GSTR-2B reconciliation" },
+    { owner: "Shalu", business: "Ryan", task: "Oct collections" },
+    { owner: "me", business: "EPC", task: "EPC GST templates" },
+    { owner: "me", business: "Personal", task: "Buy mediclaim" }] });
   await bot.handleMessage(text(OWNER, "four tasks"));
   await bot.handleMessage(text(OWNER, "boards"));
   const links = wa.last(OWNER).body;
   assert.ok(links.includes("Master (only you): https://desk.example.com/board/") && links.includes("EPC → Rajneesh") && !links.includes("Personal"));
 
   const epcKey = await bot.boards.keyFor("EPC");
-  let team = await bot.boards.teamBoard("EPC");
+  const team = await bot.boards.teamBoard("EPC");
   const allTeam = JSON.stringify(team);
   assert.ok(allTeam.includes("Oct GSTR-2B reconciliation"));
   assert.ok(!allTeam.includes("Oct collections") && !allTeam.includes("EPC GST templates") && !allTeam.includes("mediclaim"));
 
+  // Age is what raises a flag now that nothing is ranked: a week open and still nothing.
   clock.at(17, 10);
-  team = await bot.boards.teamBoard("EPC");
-  assert.equal(team.attention.length, 1);
+  assert.equal((await bot.boards.teamBoard("EPC")).attention.length, 0);
+  clock.at(24, 10);
+  assert.equal((await bot.boards.teamBoard("EPC")).attention.length, 1);
 
   const master = await bot.boards.masterBoard("attention");
   assert.ok(JSON.stringify(master).includes("Buy mediclaim"));
@@ -263,14 +404,12 @@ test("boards and safeguards: privacy, attention, tick, P1, newlink, move, assign
   const tid = (await bot.store.findOne("tasks", { description: "Buy mediclaim" })).id;
   await bot.boards.act(tid, "done");
   assert.equal((await bot.getTask(tid)).status, "done");
-  const sid = (await bot.store.findOne("tasks", { description: "Oct collections" })).id;
-  await bot.boards.act(sid, "p1");
-  assert.equal((await bot.getTask(sid)).priority, "urgent");
 
   await bot.handleMessage(text(OWNER, "newlink EPC"));
   assert.equal(await bot.boards.scopeOf(epcKey), null);
   assert.match(wa.last(OWNER).body, /New link/);
 
+  const sid = (await bot.store.findOne("tasks", { description: "Oct collections" })).id;
   await bot.handleMessage(text(OWNER, `move ${sid} EPC`));
   assert.equal((await bot.getTask(sid)).business, "EPC");
   await bot.handleMessage(text(OWNER, `assign ${sid} Rajneesh`));
@@ -289,18 +428,19 @@ test("boards and safeguards: privacy, attention, tick, P1, newlink, move, assign
   assert.equal((await bot.getTask(tid)).status, "working");
 
   const csv = await bot.boards.exportCsv();
-  assert.ok(csv.startsWith("id,business,owner") && csv.includes("Buy mediclaim"));
+  assert.ok(csv.startsWith("id,business,owner,description,status") && csv.includes("Buy mediclaim"));
+  assert.ok(!csv.includes("priority"));
 });
 
 test("message log, msgs command, remark history on master board only", async () => {
   const clock = makeClock(); clock.at(16, 9);
   const { bot, wa } = setup(clock);
   bot.ai.parseOwner = async () => ({ tasks: [
-    { owner: "Himanshu", business: "HoldPoint", task: "Galaxy Royal invoice", priority: "normal" },
-    { owner: "Himanshu", business: "HoldPoint", task: "Sector 76 site visit", priority: "normal" }] });
+    { owner: "Himanshu", business: "HoldPoint", task: "Galaxy Royal invoice" },
+    { owner: "Himanshu", business: "HoldPoint", task: "Sector 76 site visit" }] });
   await bot.handleMessage(text(OWNER, "two tasks"));
-  clock.at(16, 18);
-  await bot.runCheckin();
+  clock.at(16, 11, 59);
+  await bot.runPending();
   const ids = (await bot.store.find("tasks", {}, { sort: { id: 1 } })).map((t) => t.id);
   bot.ai.parseStatus = async (t) =>
     t.includes("1 done") ? { updates: [{ task_id: ids[0], status: "done" }] }
@@ -319,7 +459,7 @@ test("message log, msgs command, remark history on master board only", async () 
   const out = wa.last(OWNER).body;
   assert.ok(out.includes("Last 3 messages – Himanshu") && out.includes("🎤") && out.includes("Thursday ko visit"));
 
-  await bot.handleMessage(text(OWNER, `Himanshu ${ids[1]} – ok, confirm by Wednesday`));
+  await bot.handleMessage(text(OWNER, `Himanshu ${ids[1]} - ok, confirm by Wednesday`));
   const msgs = JSON.stringify(await bot.boards.masterBoard("messages", "Himanshu"));
   assert.ok(msgs.includes("call kar lena") && msgs.includes('"voice":true'));
   const hp = await bot.boards.masterBoard("holdpoint");
@@ -349,21 +489,22 @@ test("cron endpoint: runs a due slot once, ignores off-window, off-day, bad toke
   const { GET } = await import("../app/api/cron/route.js");
   const hit = async () => (await GET(new Request(`http://x/api/cron?token=${bot.s.waVerifyToken}`))).json();
 
-  await bot.handleMessage(text(OWNER, "Pulkit – last 7 days Amazon ad spend report"));
-  assert.equal(wa.to(PULKIT).length, 0);   // P2: nothing until the batch slot
+  await bot.handleMessage(text(PULKIT, "Hi"));
+  await bot.handleMessage(text(OWNER, "Pulkit - last 7 days Amazon ad spend report"));
+  const nAfterAssign = wa.to(PULKIT).length;
 
   assert.equal((await GET(new Request("http://x/api/cron?token=wrong"))).status, 403);
 
-  clock.at(16, 11, 59);
-  assert.deepEqual((await hit()).ran, []); // 12:00 has not arrived
+  clock.at(16, 11, 58);
+  assert.deepEqual((await hit()).ran, []); // 11:59 has not arrived
+  assert.equal(wa.to(PULKIT).length, nAfterAssign);
 
-  clock.at(16, 12, 5);                     // a cron 5 minutes late still catches the slot
-  assert.deepEqual((await hit()).ran, ["batch@12:00"]);
-  assert.equal(wa.to(PULKIT).length, 1);
+  clock.at(16, 12, 4);                     // a cron 5 minutes late still catches the slot
+  assert.deepEqual((await hit()).ran, ["pending@11:59"]);
+  assert.match(wa.last(PULKIT).body, /Pending with you/);
 
-  clock.at(16, 12, 20);                    // a retry must not send the same batch twice
+  clock.at(16, 12, 20);                    // a retry must not send the same round twice
   assert.deepEqual((await hit()).ran, []);
-  assert.equal(wa.to(PULKIT).length, 1);
 
   clock.at(16, 14);                        // more than an hour late: the slot is gone, not resent
   assert.deepEqual((await hit()).ran, []);
@@ -378,47 +519,47 @@ test("cron endpoint: runs a due slot once, ignores off-window, off-day, bad toke
   delete globalThis.__ankitDesk;
 });
 
-test("a failed WhatsApp send never loses the task: the next batch retries it", async () => {
+test("a failed WhatsApp send never loses the task: the next pending round retries it", async () => {
   const clock = makeClock(); clock.at(16, 10);
   const { bot, wa } = setup(clock);
   for (const p of [HIMANSHU, PULKIT]) await bot.handleMessage(text(p, "Hi"));
   wa.sent.length = 0;
 
-  // P1: told instantly, but WhatsApp rejects it. Ankit must be told, and the task must stay queued.
+  // Sent the moment it is assigned, but WhatsApp rejects it. Ankit must be told, and the task
+  // must stay queued rather than looking delivered.
   clock.at(16, 11);
   wa.failing = [HIMANSHU];
   await bot.handleMessage(voice(OWNER, "v1"));
   assert.match(wa.last(OWNER).body, /NOT delivered/);
-  const p1 = (await bot.openTasks("Himanshu"))[0];
-  assert.equal(p1.notified, 0);
+  const a = (await bot.openTasks("Himanshu"))[0];
+  assert.equal(a.notified, 0);
 
-  // P2: the batch send fails too, so nothing is marked delivered.
   wa.failing = [HIMANSHU, PULKIT];
-  await bot.handleMessage(text(OWNER, "Pulkit – last 7 days Amazon ad spend report"));
-  const p2 = (await bot.openTasks("Pulkit"))[0];
-  clock.at(16, 12);
-  const first = await bot.runBatch();
+  await bot.handleMessage(text(OWNER, "Pulkit - last 7 days Amazon ad spend report"));
+  const b = (await bot.openTasks("Pulkit"))[0];
+  clock.at(16, 11, 59);
+  const first = await bot.runPending();
   assert.equal(first.sent.length, 0);
   assert.equal(first.failed.length, 2, JSON.stringify(first));
-  assert.equal((await bot.getTask(p1.id)).notified, 0);
-  assert.equal((await bot.getTask(p2.id)).notified, 0);
+  assert.equal((await bot.getTask(a.id)).notified, 0);
+  assert.equal((await bot.getTask(b.id)).notified, 0);
 
-  // WhatsApp recovers: the 4 PM batch delivers both and only then marks them.
+  // WhatsApp recovers: the 4 PM round delivers both and only then marks them.
   wa.failing = [];
   clock.at(16, 16);
-  const second = await bot.runBatch();
+  const second = await bot.runPending();
   assert.deepEqual(second.failed, []);
   assert.match(wa.last(HIMANSHU).body, /Galaxy Royal/);
   assert.match(wa.last(PULKIT).body, /Amazon/);
-  assert.equal((await bot.getTask(p1.id)).notified, 1);
-  assert.equal((await bot.getTask(p2.id)).notified, 1);
+  assert.equal((await bot.getTask(a.id)).notified, 1);
+  assert.equal((await bot.getTask(b.id)).notified, 1);
 
   // And a broken number for one person must not stop the rest of the team.
   wa.failing = [HIMANSHU];
-  await bot.handleMessage(text(OWNER, "Pulkit – last 7 days Amazon ad spend report"));
   clock.at(16, 17);
-  const third = await bot.runBatch();
+  const third = await bot.runPending();
   assert.deepEqual(third.sent, ["Pulkit:1"]);
+  assert.equal(third.failed.length, 1);
 });
 
 test("a task with a time: on the calendar, pinged 5 minutes before, once", async () => {

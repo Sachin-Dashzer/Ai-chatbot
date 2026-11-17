@@ -10,6 +10,7 @@ export class FakeWA {
   constructor() { this.sent = []; this.failing = []; }
   _check(to) { if (this.failing.includes(to)) throw new Error("WhatsApp send failed 400: (#132015) template is not Active"); }
   async sendText(to, body) { this._check(to); this.sent.push({ kind: "text", to, body }); }
+  async sendButtons(to, body, buttons) { this._check(to); this.sent.push({ kind: "buttons", to, body, buttons }); }
   async sendTemplate(to, name, params = [], payloads = []) { this._check(to); this.sent.push({ kind: "template", to, name, params, payloads }); }
   async downloadMedia(id) { return { bytes: Buffer.from(id), mime: "audio/ogg" }; }
   to(p) { return this.sent.filter((m) => m.to === p); }
@@ -24,19 +25,22 @@ export const VOICE = {
 
 export class FakeAI {
   async transcribe(bytes) { return VOICE[bytes.toString()]; }
+  // The real one corrects spelling and grammar; here it only has to be the identity, so a
+  // test can tell a message that went through the pass from one that skipped it.
+  async polish(text) { return text; }
   async parseOwner(text) {
-    if (text === VOICE.v1) return { tasks: [{ owner: "Himanshu", business: "HoldPoint", task: "Send Galaxy Royal final invoice", priority: "urgent" }] };
+    if (text === VOICE.v1) return { tasks: [{ owner: "Himanshu", business: "HoldPoint", task: "Send Galaxy Royal final invoice" }] };
     if (text === VOICE.v2) return { tasks: [
-      { owner: "Himanshu", business: "HoldPoint", task: "Fix Sector 76 society site visit", priority: "normal" },
-      { owner: "Himanshu", business: "HoldPoint", task: "Send AMC quote to Galaxy Royal", priority: "normal" },
-      { owner: "Shalu", business: "Ryan", task: "Match Oct collections vs billing", priority: "normal" },
-      { owner: "Rajneesh", business: "EPC", task: "Oct GSTR-2B reconciliation", priority: "normal" },
-      { owner: "me", business: "PHMG", task: "Review Goodbite reply", priority: "urgent" }] };
-    if (text.includes("Amazon")) return { tasks: [{ owner: "Pulkit", business: "Pulkit", task: "Share 7-day Amazon ad spend report", priority: "normal" }] };
+      { owner: "Himanshu", business: "HoldPoint", task: "Fix Sector 76 society site visit" },
+      { owner: "Himanshu", business: "HoldPoint", task: "Send AMC quote to Galaxy Royal" },
+      { owner: "Shalu", business: "Ryan", task: "Match Oct collections vs billing" },
+      { owner: "Rajneesh", business: "EPC", task: "Oct GSTR-2B reconciliation" },
+      { owner: "me", business: "PHMG", task: "Review Goodbite reply" }] };
+    if (text.includes("Amazon")) return { tasks: [{ owner: "Pulkit", business: "Pulkit", task: "Share 7-day Amazon ad spend report" }] };
     // A reminder for himself with a clock time: the real prompt is given "now", so it
     // returns the moment resolved, which is what the bot stores and pings on.
-    if (/rahul/i.test(text)) return { tasks: [{ owner: "me", business: "Personal", task: "Call Mr Rahul", priority: "normal", due_at: "2026-11-17T21:00" }] };
-    if (/courier/i.test(text)) return { tasks: [{ owner: "Pulkit", business: "Pulkit", task: "Call the courier", priority: "normal", due_at: "2026-11-17T21:00" }] };
+    if (/rahul/i.test(text)) return { tasks: [{ owner: "me", business: "Personal", task: "Call Mr Rahul", due_at: "2026-11-17T21:00" }] };
+    if (/courier/i.test(text)) return { tasks: [{ owner: "Pulkit", business: "Pulkit", task: "Call the courier", due_at: "2026-11-17T21:00" }] };
     return { tasks: [], unclear: [text] };
   }
   async parseStatus(text, items) {
@@ -78,3 +82,5 @@ let n = 0;
 export const text = (from, body) => ({ from, id: `m${++n}`, type: "text", text: { body } });
 export const voice = (from, key) => ({ from, id: `m${++n}`, type: "audio", audio: { id: key } });
 export const tap = (from, payload) => ({ from, id: `m${++n}`, type: "button", button: { payload, text: "View" } });
+
+export const btn = (from, id) => ({ from, id: `m${++n}`, type: "interactive", interactive: { type: "button_reply", button_reply: { id, title: "x" } } });

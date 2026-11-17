@@ -94,8 +94,8 @@ export default async function Home() {
       {/* The lead figure answers the sentence under the title. */}
       <Stats items={[
         { label: "Waiting on you", value: pending.length, tone: "negative", caption: "stuck on you, plus your own open tasks" },
-        { label: "Needs attention", value: stats.attention, caption: `of ${stats.open} open: stuck, a P1 over a day old, or 7 days` },
-        { label: "P1 open", value: stats.p1, caption: "delivered the moment you send them" },
+        { label: "Needs attention", value: stats.attention, caption: `of ${stats.open} open: stuck, or open 7 days or more` },
+        { label: "Stuck", value: stats.stuck, caption: "waiting on you, a client or a vendor" },
         { label: "Closed", value: stats.doneWeek, caption: "in the last 7 days" },
       ]} />
 
@@ -108,9 +108,10 @@ export default async function Home() {
             <DayStrip slots={slots} nowMin={nowMin} />
             <DayList slots={slots} nowMin={nowMin} />
             <p className="mt-3 border-t border-rule pt-3 text-small text-faint">
-              Working days {s.workDays}. P1 tasks skip the schedule and go out the moment you send them. Outside
-              WhatsApp&rsquo;s 24-hour window the bot sends the approved template and releases the full task as soon as
-              the person replies.
+              Working days {s.workDays}. Every task goes out the moment you send it, so the schedule is only for
+              the reminders: the pending list twice a day, the 6 PM status round, and your own overview with it.
+              Outside WhatsApp&rsquo;s 24-hour window the bot sends the approved template and releases the full task
+              as soon as the person replies.
             </p>
           </Panel>
 

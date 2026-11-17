@@ -48,10 +48,10 @@ export async function GET(req) {
   }
 
   const slots = [
-    ...s.batchTimes.split(",").map((t) => [t.trim(), "batch"]),
-    [s.checkinTime, "checkin"], [s.nudgeTime, "nudge"], [s.briefTime, "brief"],
+    ...s.pendingTimes.split(",").map((t) => [t.trim(), "pending"]),
+    [s.reviewTime, "review"], [s.nudgeTime, "nudge"], [s.briefTime, "brief"],
   ].filter(([t]) => t);
-  const jobs = { batch: () => bot.runBatch(), checkin: () => bot.runCheckin(), nudge: () => bot.runNudge(), brief: () => bot.runBrief() };
+  const jobs = { pending: () => bot.runPending(), review: () => bot.runReview(), nudge: () => bot.runNudge(), brief: () => bot.runBrief() };
 
   const date = bot.today();
   const ran = [], failed = [];

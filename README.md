@@ -4,7 +4,7 @@ Ankit gives tasks by WhatsApp voice note or text. The team gets them on WhatsApp
 
 **Stack:** Next.js 15 (App Router, JavaScript) · MongoDB (Atlas) · Tailwind CSS · Node 20 · node-cron · WhatsApp Cloud API · OpenAI (Whisper for voice, GPT for understanding messages).
 
-`npm test` runs 8 end-to-end scenarios with simulated WhatsApp and AI. All pass.
+`npm test` runs 15 end-to-end scenarios with simulated WhatsApp and AI. All pass.
 
 > **It is a WhatsApp chatbot.** WhatsApp itself is the chat screen, so there is no chat page in this code. Meta sends every message to `POST /api/webhook`; the bot replies through the WhatsApp Cloud API. Until the webhook is connected to Meta you will only see the web boards.
 
@@ -15,13 +15,15 @@ Ankit gives tasks by WhatsApp voice note or text. The team gets them on WhatsApp
 | When | What happens |
 |---|---|
 | Any time | Ankit sends a voice note or text. AI turns it into tasks (several per message are fine) and confirms with task numbers |
-| Instantly | **P1** tasks ("P1", "urgent", "aaj", "abhi") go to the person straight away |
-| 12:00 PM, 4:00 PM | **P2** tasks (default) go as ONE combined message per person |
-| 6:00 PM | ONE check-in per person listing all their open tasks. They reply once, by text or voice: "1 done, 2 working, 3 stuck – need sir's approval" |
-| 7:00 PM | One reminder, only to people who haven't replied |
-| 8:30 AM | Ankit's brief: yesterday's score, pending on Ankit, P1 not done, each business, who didn't reply, notes |
+| Instantly | **Every task goes straight to the person**, in full, with **Done / Working / Remark** buttons under it. No ranking, no queue, no waiting for a slot |
+| 11:59 AM, 4:00 PM | ONE message per person listing everything still pending on them, and asking where each one stands. They reply once, by text or voice: "1 done, 2 working, 3 stuck – need sir's approval", or tap the buttons. This is the only list the team gets, and it is also the retry: a task WhatsApp rejected goes out here |
+| 6:00 PM | **Ankit's overview**, his alone: everything he assigned today, per person, with the group it belongs to, each one's status, the score, and what nobody has touched |
+| 7:00 PM | One reminder, only to people who owe an answer today and haven't given one |
+| 8:30 AM | Ankit's brief: yesterday's score, pending on Ankit, anything open a week or more, each business, who didn't reply, notes |
 
 Messages go out only when there is something to deliver. Unfinished tasks carry forward.
+
+**Every task message is checked before it leaves**: the parser writes the description in corrected, fully spelled English keeping every name, amount and date Ankit gave (it no longer shortens his instruction to a label), the message is laid out the same way every time, and the three reply buttons ride under it. A tap on **Done** or **Working** updates the task exactly as typing "1 done" would, and counts as that day's answer; **Remark** asks for words and sends them to Ankit at once.
 
 **Every team message is saved word for word** (voice notes as text), and every status reply is kept as a remark on its task.
 
@@ -31,12 +33,12 @@ Messages go out only when there is something to deliver. Unfinished tasks carry 
 |---|---|
 | `help` · `brief` · `list` | Commands · summary now · all open tasks |
 | `done 12` · `cancel 12` · `reopen 12` | Close / cancel / reopen |
-| `p1 12` · `p2 12` | Change priority |
+| `today` | Everything assigned today and its status (the 6 PM overview, on demand) |
 | `move 12 EPC` · `assign 12 Narendra` | Fix business / person |
 | `Himanshu 16 – approved` | Reply on a task (forwarded; a task stuck on Ankit goes back to working) |
 | `msgs Himanshu` · `msgs` | Last messages word for word (one person / whole team) |
-| `reminder off Narendra` · `checkin Narendra mon thu` | Per-person settings |
-| `pause Narendra till 25 nov` · `resume Narendra` | Leave mode (only P1 gets through) |
+| `reminder off Narendra` · `checkin Narendra mon thu` | Per-person settings (`checkin` sets the days an answer is expected; the pending list itself still goes out every work day) |
+| `pause Narendra till 25 nov` · `resume Narendra` | Leave mode (nothing gets through; held until they are back) |
 | `settings` · `boards` · `newlink EPC` | Show settings · board links · replace a leaked link |
 
 ### Boards
@@ -44,7 +46,7 @@ Messages go out only when there is something to deliver. Unfinished tasks carry 
 | Board | Who | What |
 |---|---|---|
 | One per business (EPC, Ryan, PHMG, Minenii, HoldPoint, Pulkit) | That team | View only. Needs attention first, tasks by person, done this week. Ankit's own tasks never shown |
-| Master | Ankit only | Tabs: Needs attention · Mine · **Messages** · each business. Tick to close, P1/P2, remark history per task, CSV backup |
+| Master | Ankit only | Tabs: Needs attention · Mine · **Messages** · each business. Tick to close, remark history per task, CSV backup. The Messages screen has a **group filter**: choose Ryan and only the people registered under Ryan are listed, and the merged thread holds only them |
 
 ---
 
@@ -52,14 +54,14 @@ Messages go out only when there is something to deliver. Unfinished tasks carry 
 
 ```
 app/api/webhook/route.js        WhatsApp webhook (GET verify, POST messages)
-app/api/admin/run/[job]/route.js  trigger batch|checkin|nudge|brief manually (testing)
+app/api/admin/run/[job]/route.js  trigger pending|review|nudge|brief manually (testing)
 app/api/cron/route.js           one URL for the whole schedule, for serverless hosts
 app/api/health/route.js         uptime check
 app/board/[key]/page.js         boards (Tailwind)        components/  Board.js, TaskCard.js, AutoRefresh.js
-app/board/[key]/act/route.js    master board tick / P1 / P2
+app/board/[key]/act/route.js    master board tick
 app/board/[key]/export/route.js CSV backup
 instrumentation.js              starts the daily scheduler when the server boots
-lib/bot.js                      all behaviour (tasks, replies, check-in, nudge, brief, commands)
+lib/bot.js                      all behaviour (tasks, buttons, replies, pending round, nudge, review, brief, commands)
 lib/ai.js  lib/whatsapp.js      AI and WhatsApp clients
 lib/boards.js lib/settings.js   board data · per-person settings
 lib/store/mongo.js  memory.js   MongoDB store · in-memory store (tests/demo)
@@ -125,7 +127,7 @@ curl -s "https://graph.facebook.com/v23.0/$WA_WABA_ID/message_templates?fields=n
 ### 6b. On Vercel or another serverless host
 A serverless host freezes the process between requests, so node-cron can never fire; `instrumentation.js` detects the host and switches itself off. Two things are then needed:
 
-- **The schedule.** Point any external cron (cron-job.org, UptimeRobot, GitHub Actions) at `GET BASE_URL/api/cron?token=WA_VERIFY_TOKEN` **every 5 minutes**. One URL covers all five slots: it reads `BATCH_TIMES`, `CHECKIN_TIME`, `NUDGE_TIME`, `BRIEF_TIME`, `WORK_DAYS` and `TIMEZONE`, runs whatever is due, and claims each slot in the database so a retry can never send the same message twice. A slot is still picked up up to 59 minutes late. Vercel's own `vercel.json` crons work too (set `CRON_SECRET`), but Hobby allows only 2 cron jobs at once-a-day granularity, which is not enough for five slots — use an external cron there.
+- **The schedule.** Point any external cron (cron-job.org, UptimeRobot, GitHub Actions) at `GET BASE_URL/api/cron?token=WA_VERIFY_TOKEN` **every 5 minutes**. One URL covers all five slots (two pending rounds, review, reminder, brief): it reads `PENDING_TIMES` and `REVIEW_TIME` (`BATCH_TIMES` and `CHECKIN_TIME` are still read as their old names), `NUDGE_TIME`, `BRIEF_TIME`, `WORK_DAYS` and `TIMEZONE`, runs whatever is due, and claims each slot in the database so a retry can never send the same message twice. A slot is still picked up up to 59 minutes late. Vercel's own `vercel.json` crons work too (set `CRON_SECRET`), but Hobby allows only 2 cron jobs at once-a-day granularity, which is not enough for five slots — use an external cron there.
 - **`BASE_URL`.** Set it in the host's variables. On Vercel it falls back to `VERCEL_PROJECT_PRODUCTION_URL` if unset, so board links keep working, but a deployment-specific URL changes on every deploy — set it explicitly to the production domain.
 
 Voice notes are transcribed after the webhook replies to Meta, which on a frozen process means the work must be kept alive: the webhook uses `after()` and `maxDuration = 60`. Still expect a few seconds of cold start on the first message after an idle spell.
@@ -134,17 +136,21 @@ Voice notes are transcribed after the webhook replies to Meta, which on a frozen
 
 ## Acceptance tests (with Ankit, ~45 min)
 
-Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{batch|checkin|nudge|brief}?token=WA_VERIFY_TOKEN"`
+Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{pending|review|nudge|brief}?token=WA_VERIFY_TOKEN"`
 
 - [ ] `/api/health` ok; Ankit sends `help` → command list
-- [ ] Voice note with 3 tasks (1 P1) → "Assigned (3)"; P1 arrives at once; nothing else yet
-- [ ] `batch` → each person ONE combined message
-- [ ] `checkin` → each person ONE list; voice reply → "Updated" with each task
+- [ ] Voice note with 3 tasks → "Assigned (3)"; all three arrive at once, each with Done / Working / Remark under it
+- [ ] Tap **Working** on one → the board shows it working within a minute; tap **Remark**, type a line → Ankit gets it at once
+- [ ] A long instruction with names, amounts and dates arrives whole, not summarised
+- [ ] `pending` → each person ONE list of what is still on them, asking for status; voice reply → "Updated" with each task; nobody gets a second list that evening
+- [ ] `review` → Ankit alone gets the day's overview, with every person, group and status
+- [ ] `today` → the same overview on demand
 - [ ] `nudge` → only non-repliers
 - [ ] `brief` → stuck item under "Pending on you"; Ankit replies "Himanshu 3 – approved" → Himanshu receives it
+- [ ] Master board → Messages → pick a group; only that group's people are listed
 - [ ] `msgs Himanshu` → his messages word for word; master board → Messages tab shows them
-- [ ] `boards` → links; team board view-only; master tick and P1/P2 work; CSV downloads
-- [ ] `pause Pulkit today` → P2 held, P1 still delivered; `resume Pulkit`
+- [ ] `boards` → links; team board view-only; master tick works; CSV downloads
+- [ ] `pause Pulkit today` → nothing reaches him, everything is held; `resume Pulkit` → the next pending round delivers it
 - [ ] Someone who has never messaged the bot gets the `task_reminder` template with the task named in it, and their reply does not repeat it
 - [ ] `start Narendra` sends that template on demand; `start all` does the whole team
 - [ ] Before go-live: drop the `ankit_desk` database in Atlas (clears test data)
@@ -158,7 +164,7 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{batch|checkin|nud
 | Display name / template rejected | Use the owner's name; reword the template, keep its name |
 | Webhook won't verify | Token must match `WA_VERIFY_TOKEN`; URL must be https and end in `/api/webhook` |
 | Bot silent | Check Railway logs; sender's number must be in people.yaml (unknown numbers are ignored) |
-| Wrong business / person | `move 12 Ryan` / `assign 12 Narendra` |
+| Wrong business / person | `move 12 Ryan` / `assign 12 Narendra` (reassigning delivers it to the new person at once) |
 | Same task twice | Bot replies "Already open" |
 | Ticked by mistake | `reopen 12` |
 | Board link leaked | `newlink EPC` |

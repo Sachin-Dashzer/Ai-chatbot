@@ -1,6 +1,5 @@
 // The two boards. Both render inside the sheet; the frame and the navigation
-// come from Shell. A team board is view-only; the master board can tick a task
-// and change its priority.
+// come from Shell. A team board is view-only; the master board can tick a task.
 import TaskCard from "./TaskCard";
 import { PageHead } from "./Shell";
 import { Icon, Stats, Section, Empty } from "./ui";
@@ -10,8 +9,8 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 function statItems(s, caption = {}) {
   return [
     { label: "Open", value: s.open, caption: caption.open || "not closed or cancelled" },
-    { label: "Needs attention", value: s.attention, tone: "negative", caption: "stuck, a P1 over a day old, or 7 days open" },
-    { label: "P1 open", value: s.p1, caption: "delivered the moment you send them" },
+    { label: "Needs attention", value: s.attention, tone: "negative", caption: "stuck, or open 7 days or more" },
+    { label: "Stuck", value: s.stuck, caption: "waiting on you, a client or a vendor" },
     { label: "Closed", value: s.doneWeek, caption: "in the last 7 days" },
   ];
 }
