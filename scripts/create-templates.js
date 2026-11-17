@@ -1,5 +1,4 @@
-// Submit the message templates in templates.json to Meta for approval.
-// Usage: WA_TOKEN=... WA_WABA_ID=... node scripts/create-templates.js
+
 import fs from "node:fs";
 
 const token = process.env.WA_TOKEN, waba = process.env.WA_WABA_ID, v = process.env.GRAPH_VERSION || "v23.0";

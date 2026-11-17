@@ -1,17 +1,4 @@
-// Recover the outgoing messages that can be recovered, once.
-//
-// The bot never stored what it sent until the `messages_out` log was added, so
-// older threads show only the team's half. Most of the missing half cannot be
-// recovered honestly: the check-in and batch texts were built at send time from
-// a task list that is not kept, and `checkin_items` is overwritten on every run.
-//
-// One kind CAN be recovered word for word. Every reply Ankit forwards onto a
-// task is stored in `task_notes` with its exact text and timestamp, and
-// replyToTask() builds the sent message from the task deterministically. This
-// script rebuilds those, and nothing else. It invents no text and no times.
-//
-// Usage:  node scripts/backfill-messages.js [--write]
-// Without --write it only reports what it would add.
+
 import path from "node:path";
 import { loadSettings, Directory } from "../lib/config.js";
 import { MemoryStore } from "../lib/store/memory.js";

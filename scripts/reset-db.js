@@ -1,12 +1,4 @@
-// Drop the whole database and start clean. This is the go-live step in the
-// README: it clears test tasks, messages, check-ins, settings and board keys,
-// and resets task numbering to #1.
-//
-// It writes a JSON dump of everything to backups/ first, so a reset made by
-// mistake can be put back.
-//
-// Usage:  node --env-file-if-exists=.env scripts/reset-db.js [--write]
-// Without --write it only reports what it would drop.
+
 import fs from "node:fs";
 import path from "node:path";
 import { MongoClient } from "mongodb";
