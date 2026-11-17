@@ -1,17 +1,21 @@
 [
   {
-    "name": "task_update",
+    "name": "task_reminder",
     "category": "UTILITY",
     "language": "en",
     "components": [
       {
         "type": "BODY",
-        "text": "Hello {{1}}. You have a new task update from PHMG and Associates. Tap View tasks below to receive your assigned tasks.",
-        "example": { "body_text": [["Rahul"]] }
-      },
-      {
-        "type": "BUTTONS",
-        "buttons": [{ "type": "QUICK_REPLY", "text": "View tasks" }]
+        "text": "Hello {{1}}, this is a reminder from PHMG and Associates regarding: {{2}}. Due date: {{3}}. Please reply to this message if you need any help.",
+        "example": {
+          "body_text": [
+            [
+              "Rahul",
+              "#12 Send Galaxy Royal final invoice (HoldPoint)",
+              "today"
+            ]
+          ]
+        }
       }
     ]
   }

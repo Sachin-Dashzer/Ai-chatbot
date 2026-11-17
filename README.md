@@ -107,9 +107,9 @@ The console prints board links (master + each business) with sample tasks. Open 
 ```bash
 WA_TOKEN=... WA_WABA_ID=... npm run templates
 ```
-`task_update` must be **Active** in WhatsApp Manager. It is the only template the bot sends, and the only way to reach anyone outside the 24-hour window - including the very first message. Its body takes **one** param, the person's name, and carries one quick reply, "View tasks". The task itself cannot ride in a utility template, so it waits in `pending_msgs` and goes out in full the moment the person taps the button or replies - which is also what opens the window.
+`task_reminder` must be **Active** in WhatsApp Manager. It is the only template the bot sends, and the only way to reach anyone outside the 24-hour window - including the very first message. Its body takes **three** params, the person's name, the work itself and a due date, and carries no button: the person reads the task in the template, with nothing to tap. Text too long for the parameter is cut there, and that row still arrives in full as plain text once the window opens.
 
-If your approved template has another name, set `FIRST_TEMPLATE`; it must take exactly one body param, or Meta rejects the send - 132001 for a name that does not exist in your WABA, 132000 for the wrong number of params. To see what is actually approved:
+If your approved template has another name, set `FIRST_TEMPLATE`; it must take exactly three body params, or Meta rejects the send - 132001 for a name that does not exist in your WABA, 132000 for the wrong number of params. To see what is actually approved:
 ```bash
 curl -s "https://graph.facebook.com/v23.0/$WA_WABA_ID/message_templates?fields=name,language,status,components" \
   -H "Authorization: Bearer $WA_TOKEN"
@@ -145,7 +145,7 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{batch|checkin|nud
 - [ ] `msgs Himanshu` → his messages word for word; master board → Messages tab shows them
 - [ ] `boards` → links; team board view-only; master tick and P1/P2 work; CSV downloads
 - [ ] `pause Pulkit today` → P2 held, P1 still delivered; `resume Pulkit`
-- [ ] Someone who has never messaged the bot gets the `task_update` template, and tapping "View tasks" (or any reply) delivers the task in full, once
+- [ ] Someone who has never messaged the bot gets the `task_reminder` template with the task named in it, and their reply does not repeat it
 - [ ] `start Narendra` sends that template on demand; `start all` does the whole team
 - [ ] Before go-live: drop the `ankit_desk` database in Atlas (clears test data)
 
@@ -168,4 +168,4 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{batch|checkin|nud
 | Bot SIM lapses | Keep it recharged; losing it can lose the WhatsApp number |
 | Adding a person | Add to people.yaml, push (Railway redeploys), they send "Hi" |
 
-**WhatsApp 24-hour rule:** free-form messages only reach people who messaged the bot in the last 24 hours, so the very first message to a new person can only be a template. The bot handles it: outside the window it holds the task, sends the approved `task_update` template (their name, plus a "View tasks" quick reply), and releases the held text in full when they tap it or reply. No one has to send "Hi" first. To open the window before there is a task to send, Ankit sends `start Narendra` (or `start all`).
+**WhatsApp 24-hour rule:** free-form messages only reach people who messaged the bot in the last 24 hours, so the very first message to a new person can only be a template. The bot handles it: outside the window it holds the task, sends the approved `task_reminder` template with the task text as its second param, and on the person's reply releases only what the template could not carry - so nothing arrives twice. No one has to send "Hi" first. To open the window before there is a task to send, Ankit sends `start Narendra` (or `start all`).
