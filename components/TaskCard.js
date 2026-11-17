@@ -29,6 +29,16 @@ function statusMark(c, ownerView) {
   return <Status dot="open">Not started</Status>;
 }
 
+// A due time is a fact about the task, not a status, and only while it is open.
+function DueMark({ children }) {
+  return (
+    <span title="the reminder goes out 5 minutes before this"
+      className="inline-flex h-5 flex-none items-center whitespace-nowrap rounded-chip bg-[var(--pill-warning-bg)] px-1.5 text-small font-medium tabular text-[var(--pill-warning-ink)]">
+      {children}
+    </span>
+  );
+}
+
 function Meta({ who, business, age, old, className = "" }) {
   return (
     <p className={`mt-1 flex items-baseline justify-between gap-4 text-meta text-muted ${className}`}>
@@ -64,6 +74,7 @@ export default function TaskCard({ c, boardKey, tab, showBusiness = false, compa
         <div className={`min-w-0 ${compact ? "" : "lg:flex-1"}`}>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {c.p1 && <P1Mark />}
+            {c.due && c.status !== "done" && <DueMark>{c.due}</DueMark>}
             {statusMark(c, ownerView)}
             <p className="min-w-0 text-body text-ink">
               <span className="font-mono text-meta text-faint">#{c.id}</span>{/* taste-skill-ignore: a task id */} {c.description}

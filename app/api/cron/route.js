@@ -37,9 +37,14 @@ export async function GET(req) {
   // An always-on host runs these from node-cron already; doing both would send everything twice.
   if (globalThis.__ankitDeskCron) return Response.json({ ran: [], note: "in-process scheduler is running" });
 
+  // Reminders for tasks that carry a time belong to no slot and to no work day, and are
+  // at-most-once by their own flag, so they run on every hit, before the work-day gate.
+  let due = null;
+  try { due = await bot.runDue(); } catch (e) { console.error("[ankit-desk] cron due failed", e); }
+
   const now = parts(bot.now(), s.timezone);
   if (!isWorkday(s.workDays, DAY_NUM[now.weekday])) {
-    return Response.json({ ran: [], note: `not a work day (${s.workDays})` });
+    return Response.json({ ran: [], due, note: `not a work day (${s.workDays})` });
   }
 
   const slots = [
@@ -69,7 +74,7 @@ export async function GET(req) {
       failed.push(key);
     }
   }
-  return Response.json({ ran, failed, at: bot.nowIso() });
+  return Response.json({ ran, failed, due, at: bot.nowIso() });
 }
 
 export const POST = GET;

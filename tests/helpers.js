@@ -33,6 +33,10 @@ export class FakeAI {
       { owner: "Rajneesh", business: "EPC", task: "Oct GSTR-2B reconciliation", priority: "normal" },
       { owner: "me", business: "PHMG", task: "Review Goodbite reply", priority: "urgent" }] };
     if (text.includes("Amazon")) return { tasks: [{ owner: "Pulkit", business: "Pulkit", task: "Share 7-day Amazon ad spend report", priority: "normal" }] };
+    // A reminder for himself with a clock time: the real prompt is given "now", so it
+    // returns the moment resolved, which is what the bot stores and pings on.
+    if (/rahul/i.test(text)) return { tasks: [{ owner: "me", business: "Personal", task: "Call Mr Rahul", priority: "normal", due_at: "2026-11-17T21:00" }] };
+    if (/courier/i.test(text)) return { tasks: [{ owner: "Pulkit", business: "Pulkit", task: "Call the courier", priority: "normal", due_at: "2026-11-17T21:00" }] };
     return { tasks: [], unclear: [text] };
   }
   async parseStatus(text, items) {

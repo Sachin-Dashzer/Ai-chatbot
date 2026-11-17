@@ -52,17 +52,19 @@ export default async function CalendarPage({ searchParams }) {
     .filter((t) => t.status !== "cancelled" && (!who || t.owner === who));
 
   // One pass over the month: what was assigned on each day, what was closed on
-  // it, and whether anything assigned that day is now stuck or overdue.
+  // it, what is due at a set time on it, and whether anything assigned that day
+  // is now stuck or overdue.
   const byDay = new Map();
   const bucket = (ymd) => {
     let b = byDay.get(ymd);
-    if (!b) byDay.set(ymd, (b = { assigned: [], closed: [] }));
+    if (!b) byDay.set(ymd, (b = { assigned: [], closed: [], timed: [] }));
     return b;
   };
   for (const t of all) {
     const made = t.created_at.slice(0, 10);
     if (monthOf(made) === ym) bucket(made).assigned.push(t);
     if (t.done_at && monthOf(t.done_at) === ym) bucket(t.done_at.slice(0, 10)).closed.push(t);
+    if (t.due_at && monthOf(t.due_at) === ym) bucket(t.due_at.slice(0, 10)).timed.push(t);
   }
 
   const lead = WEEK.indexOf(weekdayOf(`${ym}-01`));
@@ -76,9 +78,10 @@ export default async function CalendarPage({ searchParams }) {
   const monthClosed = [...byDay.values()].reduce((n, b) => n + b.closed.length, 0);
 
   // The selected day
-  const day = byDay.get(sel) || { assigned: [], closed: [] };
+  const day = byDay.get(sel) || { assigned: [], closed: [], timed: [] };
   const assigned = await bot.boards.cards(day.assigned, true);
   const closed = await bot.boards.cards(day.closed, true);
+  const timed = await bot.boards.cards([...day.timed].sort((a, b) => a.due_at.localeCompare(b.due_at)), true);
   const isWork = work.has(weekdayOf(sel));
   const slots = isWork ? bot.boards.slots() : [];
 
@@ -167,7 +170,7 @@ export default async function CalendarPage({ searchParams }) {
           <div className="grid grid-cols-7">
             {cells.map((ymd, i) => {
               if (!ymd) return <span key={`b${i}`} className="border-b border-r border-rule bg-raised/50" />;
-              const b = byDay.get(ymd) || { assigned: [], closed: [] };
+              const b = byDay.get(ymd) || { assigned: [], closed: [], timed: [] };
               const att = b.assigned.some((t) => t.status !== "done" && bot.boards.needsAttention(t));
               const isToday = ymd === today;
               const picked = ymd === sel;
@@ -214,14 +217,23 @@ export default async function CalendarPage({ searchParams }) {
                         {b.closed.length}
                       </span>
                     )}
+                    {b.timed.length > 0 && (
+                      <span
+                        title={`${plural(b.timed.length, "task")} due at a set time`}
+                        className="rounded-chip bg-[var(--pill-warning-bg)] px-1 text-small tabular text-[var(--pill-warning-ink)]"
+                      >
+                        {b.timed.length}
+                      </span>
+                    )}
                   </span>
                 </a>
               );
             })}
           </div>
           <p className="border-t border-edge px-4 py-2 text-small text-faint sm:px-5">
-            Left figure: tasks assigned that day. Right: tasks closed. A red dot means something assigned that day is
-            now stuck or overdue. Non-working days are shaded.
+            Left figure: tasks assigned that day. Middle: tasks closed. Amber: tasks due at a set time, which ping
+            their owner 5 minutes before. A red dot means something assigned that day is now stuck or overdue.
+            Non-working days are shaded.
           </p>
         </Panel>
 
@@ -257,6 +269,14 @@ export default async function CalendarPage({ searchParams }) {
               </p>
             )}
           </Panel>
+
+          {timed.length > 0 && (
+            <Section title="Due at a set time" count={timed.length}>
+              <div className="rounded-card border border-edge px-4 sm:px-5">
+                {timed.map((c) => <TaskCard key={c.id} c={c} ownerView showBusiness compact />)}
+              </div>
+            </Section>
+          )}
 
           <Section title="Assigned" count={assigned.length || null}>
             {assigned.length === 0 ? (

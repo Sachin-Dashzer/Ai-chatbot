@@ -414,3 +414,44 @@ test("a failed WhatsApp send never loses the task: the next batch retries it", a
   const third = await bot.runBatch();
   assert.deepEqual(third.sent, ["Pulkit:1"]);
 });
+
+test("a task with a time: on the calendar, pinged 5 minutes before, once", async () => {
+  const clock = makeClock(); clock.at(17, 14);
+  const { bot, wa } = setup(clock);
+  await bot.handleMessage(text(OWNER, "set a reminder for me to call Mr Rahul at 9pm today"));
+
+  // Assigned to Ankit himself, carrying the time, and on the day's calendar.
+  const t = await bot.store.findOne("tasks", { owner: "Ankit" });
+  assert.equal(t.description, "Call Mr Rahul");
+  assert.equal(t.due_at, "2026-11-17T21:00:00+05:30");
+  assert.match(wa.last(OWNER).body, /Assigned/);
+  assert.match(wa.last(OWNER).body, /09:00 PM/);
+
+  // Nothing before 8:55, the ping at 8:55, and nothing again after.
+  clock.at(17, 20, 50);
+  assert.deepEqual((await bot.runDue()).sent, []);
+  clock.at(17, 20, 55);
+  assert.deepEqual((await bot.runDue()).sent, [`Ankit:#${t.id}`]);
+  assert.match(wa.last(OWNER).body, /Reminder/);
+  assert.match(wa.last(OWNER).body, /Rahul/);
+  const n = wa.to(OWNER).length;
+  clock.at(17, 21);
+  assert.deepEqual((await bot.runDue()).sent, []);
+  assert.equal(wa.to(OWNER).length, n);
+
+  // A timed task for someone else is the same path, and it reaches them, not Ankit.
+  await bot.handleMessage(text(PULKIT, "Hi"));
+  await bot.handleMessage(text(OWNER, "Pulkit ko bolo 9 baje courier ko call kare"));
+  const pt = await bot.store.findOne("tasks", { owner: "Pulkit" });
+  await bot.runDue();
+  assert.match(wa.last(PULKIT).body, /Reminder/);
+  assert.equal((await bot.getTask(pt.id)).due_notified, 1);
+
+  // A closed task never pings.
+  clock.at(18, 14);
+  await bot.handleMessage(text(OWNER, "set a reminder for me to call Mr Rahul at 9pm today"));
+  const late = (await bot.openTasks("Ankit")).find((x) => x.due_at && !x.due_notified);
+  await bot.setTask(late.id, { status: "done", done_at: bot.nowIso() });
+  clock.at(18, 21);
+  assert.deepEqual((await bot.runDue()).sent, []);
+});
