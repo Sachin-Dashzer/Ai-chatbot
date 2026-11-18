@@ -31,17 +31,6 @@ export function Pill({ href, on, children }) {
   );
 }
 
-// A scrolling tab row, shown only where the sidebar is folded away.
-function MobileTabs({ tabs, tab, boardKey }) {
-  return (
-    <nav className="-mx-4 mb-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:hidden">
-      {tabs.map(([k, label]) => (
-        <Pill key={k} href={`/board/${boardKey}?tab=${k}`} on={k === tab}>{label}</Pill>
-      ))}
-    </nav>
-  );
-}
-
 function Rows({ cards, empty, ...rest }) {
   if (!cards.length) return <Empty>{empty}</Empty>;
   return (
@@ -102,6 +91,18 @@ function masterFinding(data) {
   if (data.tab === "mine") return data.score ? `${data.score} of your own tasks.` : "You have no tasks of your own.";
 
   const first = data.sections?.[0];
+  if (data.tab === "attention" && data.view === "open") {
+    const n = first?.cards.length || 0;
+    const oldest = Math.max(0, ...(first?.cards.map((c) => c.days || 0) || [0]));
+    return n
+      ? `Everything still open, whoever it is with${oldest >= 3 ? `. The oldest has been open ${plural(oldest, "day")}` : ""}.`
+      : "Nothing is open. Every task has been closed.";
+  }
+  if (data.tab === "attention" && data.view === "closed") {
+    const n = data.closedTotal || 0;
+    if (!n) return "Nothing has been closed yet.";
+    return `${plural(n, "task")} finished so far${data.more ? `. The newest ${first?.cards.length} are below; the rest are in the CSV` : ""}.`;
+  }
   if (data.tab === "attention") {
     const onMe = first?.cards.length || 0;
     const team = data.sections?.[1]?.cards.length || 0;
@@ -134,15 +135,44 @@ export function MasterBoard({ data, boardKey }) {
         }
       />
 
-      <MobileTabs tabs={data.tabs} tab={data.tab} boardKey={boardKey} />
+      {/* No tab strip on a phone: every destination is in the menu button's
+          sheet, with its counts, and a second scrolling row of the same links
+          only cut the last business in half. The row below is this screen's own
+          filter, which the sheet does not carry. */}
+
+      {/* Which tasks this screen is showing. The same list, filtered three ways:
+          what needs chasing, everything open, everything finished. */}
+      {data.views && (
+        <div className="mb-5 flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-small text-faint">Showing</span>
+          {data.views.map(([k, label, count]) => (
+            <Pill
+              key={k}
+              href={`/board/${boardKey}?tab=${data.tab}${k === "attention" ? "" : `&view=${k}`}`}
+              on={k === data.view}
+            >
+              {label}
+              <span className="ml-1.5 tabular opacity-70">{count}</span>
+            </Pill>
+          ))}
+        </div>
+      )}
 
       {data.stats && <Stats items={statItems(data.stats)} />}
 
       {data.sections?.map((s, i) => (
         <Section key={i} title={s.title} count={s.cards.length || null} className="mt-7">
-          <Rows cards={s.cards} empty={s.empty || "Nothing here."} boardKey={boardKey} tab={data.tab} showBusiness={showBusiness} />
+          <Rows cards={s.cards} empty={s.empty || "Nothing here."} boardKey={boardKey} tab={data.tab}
+            view={data.view} showBusiness={showBusiness} />
         </Section>
       ))}
+
+      {data.more > 0 && (
+        <p className="mt-3 text-small text-faint">
+          {data.more} older completed {data.more === 1 ? "task is" : "tasks are"} not shown. The CSV backup above has
+          every task ever.
+        </p>
+      )}
     </>
   );
 }

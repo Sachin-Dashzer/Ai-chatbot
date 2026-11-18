@@ -11,5 +11,10 @@ export async function POST(req, { params }) {
   const form = await req.formData();
   await bot.boards.act(Number(form.get("id")), String(form.get("action")));
   const tab = encodeURIComponent(String(form.get("tab") || "attention"));
-  return new Response(null, { status: 303, headers: { Location: `/board/${key}?tab=${tab}` } });
+  // The view the tick came from, so ticking in "All open tasks" lands back there.
+  const view = encodeURIComponent(String(form.get("view") || ""));
+  return new Response(null, {
+    status: 303,
+    headers: { Location: `/board/${key}?tab=${tab}${view ? `&view=${view}` : ""}` },
+  });
 }

@@ -50,7 +50,7 @@ Messages go out only when there is something to deliver. Unfinished tasks carry 
 | Board | Who | What |
 |---|---|---|
 | One per business (EPC, Ryan, PHMG, Minenii, HoldPoint, Pulkit) | That team | View only. Needs attention first, tasks by person, done this week. Ankit's own tasks never shown |
-| Master | Ankit only | Tabs: Needs attention · Mine · **Messages** · **People** · each business. Tick to close, remark history per task, CSV backup. The Messages screen has a **group filter**: choose Ryan and only the people registered under Ryan are listed, and the merged thread holds only them. The People screen adds, edits and removes team members |
+| Master | Ankit only | Tabs: Needs attention · Mine · **Messages** · **People** · each business. Tick to close, remark history per task, CSV backup. **Needs attention is also the whole task list**: the row of filters at the top switches between what needs chasing, **All open tasks** (every open task, oldest first) and **Completed** (every finished task, newest first, with the date it closed and how long it took). Ticking a task keeps you in the filter you were in. The Messages screen has a **group filter**: choose Ryan and only the people registered under Ryan are listed, and the merged thread holds only them. The People screen adds, edits and removes team members |
 
 ---
 

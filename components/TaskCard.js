@@ -4,11 +4,12 @@
 // right edge, the action last. Below lg it folds into two lines.
 import { Icon, Status } from "./ui";
 
-function ActionForm({ boardKey, tab, id, action, children, className, label }) {
+function ActionForm({ boardKey, tab, view, id, action, children, className, label }) {
   return (
     <form method="post" action={`/board/${boardKey}/act`} className="contents">
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="tab" value={tab} />
+      {view && <input type="hidden" name="view" value={view} />}
       <button name="action" value={action} className={className} aria-label={label} title={label}>
         {children}
       </button>
@@ -39,28 +40,39 @@ function DueMark({ children }) {
   );
 }
 
-function Meta({ who, business, age, old, className = "" }) {
+// Who it is with on the left, when on the right. A second measure (how long a
+// finished task took) stacks under the date on the same right edge rather than
+// stealing width from the name.
+function Meta({ who, business, age, sub, old, className = "" }) {
   return (
     <p className={`mt-1 flex items-baseline justify-between gap-4 text-meta text-muted ${className}`}>
       <span className="min-w-0 truncate">{business ? `${who} · ${business}` : who}</span>
-      <span className={`flex-none tabular ${old ? "font-medium text-ink" : ""}`}>{age}</span>
+      <span className="flex-none text-right tabular">
+        <span className={old ? "font-medium text-ink" : ""}>{age}</span>
+        {sub && <span className="block text-faint">{sub}</span>}
+      </span>
     </p>
   );
 }
 
 // `compact` keeps the row on one stacked column — for the narrow rails, where
 // splitting it would squeeze the description to three words a line.
-export default function TaskCard({ c, boardKey, tab, showBusiness = false, compact = false, ownerView = Boolean(boardKey) }) {
+export default function TaskCard({ c, boardKey, tab, view, showBusiness = false, compact = false, ownerView = Boolean(boardKey) }) {
   const master = Boolean(boardKey);
   const who = ownerView && c.isMine ? "You" : c.owner;
-  const age = c.status === "done" ? `done ${c.doneOn}` : c.ageText;
+  // A finished row carries the date it closed and how long it took to get there.
+  const done = c.status === "done";
+  const age = done ? `done ${c.doneOn}` : c.ageText;
+  const sub = done && c.took != null
+    ? c.took === 0 ? "same day" : `took ${c.took} day${c.took === 1 ? "" : "s"}`
+    : null;
   const old = c.status !== "done" && c.ageLevel === "red";
 
   return (
     <div className="flex items-start gap-3 border-b border-rule py-2.5 last:border-0">
       {master && c.status !== "done" && (
         <ActionForm
-          boardKey={boardKey} tab={tab} id={c.id} action="done" label={`Mark #${c.id} done`}
+          boardKey={boardKey} tab={tab} view={view} id={c.id} action="done" label={`Mark #${c.id} done`}
           className="press group mt-[3px] flex h-[18px] w-[18px] flex-none items-center justify-center rounded-[3px] border-2 border-[var(--control)] hover:border-[var(--positive)]"
         >
           <Icon.check
@@ -84,7 +96,7 @@ export default function TaskCard({ c, boardKey, tab, showBusiness = false, compa
 
           {/* Stacked: who and how old belong on line 2, above the disclosure.
               Split: the same facts move to their own right-aligned column. */}
-          {!compact && <Meta who={who} business={showBusiness && c.business} age={age} old={old} className="lg:hidden" />}
+          {!compact && <Meta who={who} business={showBusiness && c.business} age={age} sub={sub} old={old} className="lg:hidden" />}
 
           {master && c.remarks.length > 0 && (
             <details className="mt-1.5">
@@ -107,7 +119,7 @@ export default function TaskCard({ c, boardKey, tab, showBusiness = false, compa
         </div>
 
         <Meta
-          who={who} business={showBusiness && c.business} age={age} old={old}
+          who={who} business={showBusiness && c.business} age={age} sub={sub} old={old}
           className={compact ? "" : "hidden lg:mt-[3px] lg:flex lg:w-56 lg:flex-none"}
         />
       </div>
