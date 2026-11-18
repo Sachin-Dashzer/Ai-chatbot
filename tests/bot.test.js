@@ -34,11 +34,16 @@ test("example Monday: every task goes straight out, one list per round, reply, n
   const round = await bot.runPending();
   assert.deepEqual(round.failed, []);
   assert.match(wa.last(HIMANSHU).body, /Pending with you \(3\)/);
-  assert.equal(wa.last(HIMANSHU).kind, "text");          // three tasks: a tap would be ambiguous
-  assert.equal(wa.last(SHALU).kind, "buttons");          // one task: it keeps its buttons
+  assert.equal(wa.last(HIMANSHU).kind, "text");          // an announcement never carries buttons
+  assert.equal(wa.last(SHALU).kind, "text");             // one task, and still no buttons
   assert.equal(wa.to(PULKIT).length, 0);                 // nothing open, so nothing sent
   const chk = wa.last(HIMANSHU).body;
-  assert.ok(chk.includes("1. #") && chk.includes("2. #") && chk.includes("3. #") && chk.includes("Reply in ONE message"));
+  // Every pending job named in full: that is the whole point of the round.
+  for (const t of await bot.openTasks("Himanshu")) assert.ok(chk.includes(t.description), `not named: ${t.description}`);
+  assert.ok(chk.includes("*1.*") && chk.includes("*2.*") && chk.includes("*3.*"));
+  // An announcement, so nothing that makes it a question and no internal ids.
+  assert.ok(!chk.includes("Reply in ONE message"), "the round no longer asks for a reply");
+  assert.ok(!/\*\d+\. #\d+\*/.test(chk), "no task ids in the announcement");
   // "1 done" has to mean the 1 he is looking at, so the numbering follows the list just sent.
   const numbering = await bot.store.find("checkin_items", { owner: "Himanshu" }, { sort: { idx: 1 } });
   assert.deepEqual(numbering.map((r) => r.idx), [1, 2, 3]);
@@ -121,8 +126,8 @@ test("closed 24h window: the template carries what it can, and the full message 
   // him was the message flattened onto one line - not the message. Both are now sent in full.
   await bot.handleMessage(text(PULKIT, "ok"));
   assert.ok(wa.to(PULKIT).some((x) => x.kind === "buttons" && x.body.includes("Amazon") && x.body.includes("New task from Ankit")));
-  // One task, so his list keeps its buttons: it comes back as the interactive message.
-  assert.ok(wa.to(PULKIT).some((x) => x.kind === "buttons" && x.body.includes("Pending with you")));
+  // His list is an announcement, so it comes back as plain text, buttons or not.
+  assert.ok(wa.to(PULKIT).some((x) => x.kind === "text" && x.body.includes("Pending with you")));
   assert.equal(await bot.store.count("pending_msgs", { phone: PULKIT }), 0);
 
   clock.at(18, 10);
