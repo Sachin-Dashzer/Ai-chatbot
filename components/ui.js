@@ -169,66 +169,34 @@ export function Empty({ children }) {
 }
 
 // ── The bot's day ────────────────────────────────────────────────────────
-// This product's own element: the five moments the bot acts, on one axis,
-// with now marked. Labels alternate above and below the track so 18:00 and
-// 19:00 never collide.
-const DAY_FROM = 8 * 60;
-const DAY_TO = 20 * 60;
-const pct = (min) => Math.min(100, Math.max(0, ((min - DAY_FROM) / (DAY_TO - DAY_FROM)) * 100));
-
-export function DayStrip({ slots, nowMin }) {
-  const elapsed = pct(nowMin);
-  const showNow = nowMin > DAY_FROM && nowMin < DAY_TO;
-  return (
-    <div className="hidden md:block" aria-hidden>
-      <div className="relative h-[108px]">
-        {/* the track */}
-        <div className="absolute inset-x-0 top-[52px] h-px bg-edge" />
-        {showNow && <div className="absolute top-[52px] h-px bg-[var(--control)]" style={{ left: 0, width: `${elapsed}%` }} />}
-
-        {slots.map((s, i) => {
-          const x = pct(s.min);
-          const above = i % 2 === 1;
-          const last = i === slots.length - 1;
-          const past = s.min <= nowMin;
-          return (
-            <div key={s.time} className="absolute top-0 h-full" style={{ left: `${x}%` }}>
-              <span
-                className={`absolute left-[-3.5px] top-[48.5px] h-[7px] w-[7px] rounded-full border ${
-                  past ? "border-ink bg-ink" : "border-[var(--control)] bg-surface"}`} />
-              <span className={`absolute left-0 w-px bg-edge ${above ? "top-[34px] h-[18px]" : "top-[53px] h-[18px]"}`} />
-              <div
-                className={`absolute whitespace-nowrap ${above ? "top-[6px]" : "top-[73px]"}`}
-                style={{ transform: last ? "translateX(calc(-100% + 1px))" : i === 0 ? "none" : "translateX(-50%)" }}>
-                <p className={`text-small tabular ${past ? "text-ink" : "text-muted"}`}>{s.time}</p>
-                <p className="text-small text-faint">{s.what}</p>
-              </div>
-            </div>
-          );
-        })}
-
-        {showNow && (
-          <div className="absolute top-[30px] h-[44px]" style={{ left: `${elapsed}%` }}>
-            <span className="absolute inset-y-0 left-0 w-px bg-[var(--accent)]" />
-            <span className="absolute -top-[18px] left-0 -translate-x-1/2 whitespace-nowrap rounded-chip bg-[var(--pill-accent-bg)] px-1.5 py-px text-[11px] font-medium text-[var(--pill-accent-ink)]">
-              now
-            </span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
+// This product's own element: the moments the bot acts, as a plain list you
+// read top to bottom — the clock on the left, one sentence saying what happens,
+// what has already gone out ticked and greyed, and the one still to come marked
+// "next". It replaced an axis chart: the chart was shorter to read only if you
+// already knew what the five marks on it meant.
 export function DayList({ slots, nowMin }) {
+  const next = slots.find((s) => s.min > nowMin);
   return (
-    <dl className="md:hidden">
-      {slots.map((s) => (
-        <div key={s.time} className="flex gap-3 border-b border-rule py-2 last:border-0">
-          <dt className={`w-[4.5rem] shrink-0 text-body tabular ${s.min <= nowMin ? "text-ink" : "text-muted"}`}>{s.time}</dt>
-          <dd className="text-body text-muted">{s.what}</dd>
-        </div>
-      ))}
+    <dl>
+      {slots.map((s) => {
+        const past = s.min <= nowMin;
+        const isNext = s === next;
+        return (
+          <div key={s.time + s.kind} className="flex items-baseline gap-3 border-b border-rule py-2.5 last:border-0">
+            <dt className={`w-[4.25rem] shrink-0 text-body font-medium tabular ${past ? "text-faint" : "text-ink"}`}>
+              {s.time}
+            </dt>
+            <dd className={`min-w-0 flex-1 text-body ${past ? "text-faint" : "text-ink"}`}>{s.what}</dd>
+            {isNext && <Status dot="warning">Next</Status>}
+            {past && (
+              <span className="flex-none">
+                <Icon.check width={14} height={14} className="text-faint" />
+                <span className="sr-only">already sent</span>
+              </span>
+            )}
+          </div>
+        );
+      })}
     </dl>
   );
 }

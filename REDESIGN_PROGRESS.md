@@ -50,6 +50,14 @@ request; the chat was rebuilt as a real WhatsApp thread.
 - **Signature element:** *the bot's day* on the home screen — the five moments the bot acts
   (08:30 brief, 12:00 and 16:00 batches, 18:00 check-in, 19:00 reminder) on one axis with *now*
   marked, read live from `BRIEF_TIME` / `BATCH_TIMES` / `CHECKIN_TIME` / `NUDGE_TIME`.
+- **Update (18 Nov 2026), the Today screen only:** made beginner-friendly. The four-figure KPI strip
+  went — its cells overlapped ("Waiting on you" / "Needs attention" / "Stuck") and each named a panel
+  below — and every number now leads the one block that explains it. *The bot's day* keeps its place as
+  the signature element but is a plain list (clock, one sentence, a tick on what has gone out, "Next" on
+  what is coming): the axis only read quickly to someone who already knew what its five marks meant.
+  Labels are plain words, the command wall is the everyday handful with the rest behind a disclosure,
+  and the webhook/health footer is gone. `slots()` now carries a `kind` and a whole sentence per slot;
+  the calendar matches on `kind` instead of on the old label text.
 - Style originally dealt by tasteskill: `framed-sheet`, seed 531914447, kind `smb-admin`. Its
   frame and sheet were deliberately discarded; its type scale, density and tokens remain.
 

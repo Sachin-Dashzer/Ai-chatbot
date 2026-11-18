@@ -253,7 +253,7 @@ export default async function CalendarPage({ searchParams }) {
                     <dt className="w-[4.5rem] shrink-0 text-body tabular text-ink">{x.time}</dt>
                     <dd className="min-w-0 text-body text-muted">
                       {x.what}
-                      {x.what === "pending lists go out" && (
+                      {x.kind === "pending" && (
                         <span className="mt-0.5 block text-small text-faint">
                           {due.length ? `reply expected from ${due.join(", ")}` : "no reply expected today"}
                         </span>
