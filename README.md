@@ -16,10 +16,10 @@ Ankit gives tasks by WhatsApp voice note or text. The team gets them on WhatsApp
 |---|---|
 | Any time | Ankit sends a voice note or text. AI turns it into tasks (several per message are fine) and confirms with task numbers |
 | Instantly | **Every task goes straight to the person**, in full, with **Done / Working / Remark** buttons under it. No ranking, no queue, no waiting for a slot |
-| 11:59 AM, 4:00 PM | ONE message per person listing everything still pending on them, and asking where each one stands. They reply once, by text or voice: "1 done, 2 working, 3 stuck – need sir's approval", or tap the buttons. This is the only list the team gets, and it is also the retry: a task WhatsApp rejected goes out here |
+| 12:00 PM, 4:00 PM | ONE message per person listing everything still pending on them, and asking where each one stands. They reply once, by text or voice: "1 done, 2 working, 3 stuck – need sir's approval", or tap the buttons. This is the only list the team gets, and it is also the retry: a task WhatsApp rejected goes out here |
 | 6:00 PM | **Ankit's overview**, his alone: everything he assigned today, per person, with the group it belongs to, each one's status, the score, and what nobody has touched |
-| 7:00 PM | One reminder, only to people who owe an answer today and haven't given one |
-| 8:30 AM | Ankit's brief: yesterday's score, pending on Ankit, anything open a week or more, each business, who didn't reply, notes |
+| 6:00 PM | One reminder, only to people who owe an answer today and haven't given one |
+| 7:00 PM | Ankit's brief: yesterday's score, pending on Ankit, anything open a week or more, each business, who didn't reply, notes |
 
 Messages go out only when there is something to deliver. Unfinished tasks carry forward.
 
@@ -135,7 +135,7 @@ curl -s "https://graph.facebook.com/v23.0/$WA_WABA_ID/message_templates?fields=n
 ### 6b. On Vercel or another serverless host
 A serverless host freezes the process between requests, so node-cron can never fire; `instrumentation.js` detects the host and switches itself off. Two things are then needed:
 
-- **The schedule.** Point any external cron (cron-job.org, UptimeRobot, GitHub Actions) at `GET BASE_URL/api/cron?token=WA_VERIFY_TOKEN` **every 5 minutes**. One URL covers all five slots (two pending rounds, review, reminder, brief): it reads `PENDING_TIMES` and `REVIEW_TIME` (`BATCH_TIMES` and `CHECKIN_TIME` are still read as their old names), `NUDGE_TIME`, `BRIEF_TIME`, `WORK_DAYS` and `TIMEZONE`, runs whatever is due, and claims each slot in the database so a retry can never send the same message twice. A slot is still picked up up to 59 minutes late. Vercel's own `vercel.json` crons work too (set `CRON_SECRET`), but Hobby allows only 2 cron jobs at once-a-day granularity, which is not enough for five slots — use an external cron there.
+- **The schedule.** `vercel.json` already carries it: one cron entry per slot, each once a day, hitting `/api/cron`. **Set `CRON_SECRET` in the Vercel project** — Vercel only sends the `Authorization: Bearer` header when that variable exists, and without it the endpoint answers 403 and nothing is sent. Entries are **UTC** and the slots are IST (+5:30), so `30 6` = 12:00, `30 10` = 16:00, `30 12` = 18:00, `30 13` = 19:00. Hobby fires within 59 minutes *after* the scheduled minute and `/api/cron` claims a slot up to 59 minutes late, so the jitter is absorbed on every plan; a test fails if a configured time has no entry covering it. Any external cron (cron-job.org, UptimeRobot) works the same way against `GET BASE_URL/api/cron?token=WA_VERIFY_TOKEN` — one URL covers all five slots (two pending rounds, review, reminder, brief), reading `PENDING_TIMES`, `REVIEW_TIME`, `NUDGE_TIME`, `BRIEF_TIME`, `WORK_DAYS` and `TIMEZONE` (`BATCH_TIMES`/`CHECKIN_TIME` are still read as their old names), and claiming each slot in the database so a retry can never send twice. `.github/workflows/cron.yml` is a backup for the due-time reminders only: GitHub throttles scheduled workflows hard (observed: 3 runs in 12 hours, not the `*/10` asked for), so do not rely on it for the fixed slots. It needs a `CRON_URL` secret and skips itself when that is missing.
 - **`BASE_URL`.** Set it in the host's variables. On Vercel it falls back to `VERCEL_PROJECT_PRODUCTION_URL` if unset, so board links keep working, but a deployment-specific URL changes on every deploy — set it explicitly to the production domain.
 
 Voice notes are transcribed after the webhook replies to Meta, which on a frozen process means the work must be kept alive: the webhook uses `after()` and `maxDuration = 60`. Still expect a few seconds of cold start on the first message after an idle spell.
@@ -177,8 +177,8 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{pending|review|nu
 | Same task twice | Bot replies "Already open" |
 | Ticked by mistake | `reopen 12` |
 | Board link leaked | `newlink EPC` |
-| Someone stops replying | "No update yesterday" in brief; 7 PM reminder |
-| Server down | UptimeRobot email; missing 8:30 brief |
+| Someone stops replying | "No update yesterday" in brief; 6 PM reminder |
+| Server down | UptimeRobot email; missing 7 PM brief |
 | Bill surprise | $10 limits on both AI accounts |
 | Bot SIM lapses | Keep it recharged; losing it can lose the WhatsApp number |
 | Adding a person | Master board → People → Add, or send `add Rahul 919812345678 Ryan`. Live in seconds, no deploy |

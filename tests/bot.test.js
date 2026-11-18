@@ -496,11 +496,11 @@ test("cron endpoint: runs a due slot once, ignores off-window, off-day, bad toke
   assert.equal((await GET(new Request("http://x/api/cron?token=wrong"))).status, 403);
 
   clock.at(16, 11, 58);
-  assert.deepEqual((await hit()).ran, []); // 11:59 has not arrived
+  assert.deepEqual((await hit()).ran, []); // 12:00 has not arrived
   assert.equal(wa.to(PULKIT).length, nAfterAssign);
 
-  clock.at(16, 12, 4);                     // a cron 5 minutes late still catches the slot
-  assert.deepEqual((await hit()).ran, ["pending@11:59"]);
+  clock.at(16, 12, 4);                     // a cron 4 minutes late still catches the slot
+  assert.deepEqual((await hit()).ran, ["pending@12:00"]);
   assert.match(wa.last(PULKIT).body, /Pending with you/);
 
   clock.at(16, 12, 20);                    // a retry must not send the same round twice
@@ -677,4 +677,33 @@ test("the team list: add, edit, remove from WhatsApp, with the rules that keep i
   // "remove the old banner" is a task, not a command.
   bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Vikas", business: "EPC", task: "Remove the old banner" }] });
   assert.match(await say("Vikas remove the old banner from the site"), /Assigned/);
+});
+
+// Nothing fires if no cron entry covers a slot: that is how the 12:00/16:00/18:00/19:00 reports
+// went missing. Vercel's jitter is lateness only (0-59 min past the scheduled minute), and
+// /api/cron claims a slot up to 59 min late, so an entry covers a slot when the slot falls in
+// [entry, entry+59] in UTC. Change a time in config.js and this fails until vercel.json matches.
+test("every scheduled slot has a vercel.json cron entry that covers it", async () => {
+  const fs = await import("node:fs");
+  const { loadSettings } = await import("../lib/config.js");
+  const s = loadSettings({});
+  const crons = JSON.parse(fs.readFileSync(new URL("../vercel.json", import.meta.url), "utf8")).crons;
+
+  const IST_OFFSET = 330; // Asia/Kolkata has no DST, so a fixed offset is the whole of it
+  assert.equal(s.timezone, "Asia/Kolkata", "offset below assumes IST");
+
+  const utc = crons.map((c) => {
+    assert.equal(c.path, "/api/cron");
+    const [m, h] = c.schedule.split(" ");
+    assert.match(`${m} ${h}`, /^\d+ \d+$/, `Hobby allows one run a day per entry: ${c.schedule}`);
+    return +h * 60 + +m;
+  });
+
+  const slots = [...s.pendingTimes.split(",").map((t) => t.trim()), s.reviewTime, s.nudgeTime, s.briefTime];
+  for (const hhmm of new Set(slots)) {
+    const [h, m] = hhmm.split(":").map(Number);
+    const wantUtc = (h * 60 + m - IST_OFFSET + 1440) % 1440;
+    assert.ok(utc.some((u) => wantUtc - u >= 0 && wantUtc - u <= 59),
+      `${hhmm} IST (${wantUtc} min UTC) has no cron entry within 59 min before it`);
+  }
 });
