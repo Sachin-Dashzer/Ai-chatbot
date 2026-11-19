@@ -888,3 +888,57 @@ test("the bot learns what someone handles from the tasks it is given, and never 
   clock.at(24, 9); // a week later
   assert.equal(await b3.bot.proposeBeat(), null, "declined, so not asked again for two months");
 });
+
+test("the right template for what is waiting, and the button payload only where there is a button", async () => {
+  const clock = makeClock(); clock.at(16, 11, 59);
+  const { bot, wa } = setup(clock);
+  const lastTpl = (p) => wa.to(p).filter((m) => m.kind === "template").pop();
+
+  // The twice-daily list: a numbered list run onto one line is not a list, so it uses the
+  // "your list is ready" template with its View tasks button. First round, so it may greet.
+  await bot.store.insert("tasks", { owner: "Pulkit", description: "Share the ad spend report",
+    status: "new", created_at: bot.nowIso(), updated_at: bot.nowIso(), notified: 0 });
+  await bot.runPending();
+  let m = lastTpl(PULKIT);
+  assert.equal(m.name, "daily_task_update");
+  assert.deepEqual(m.params, ["Pulkit", "16 Nov"]);
+  assert.deepEqual(m.payloads, ["view_tasks"]);
+
+  // Second round of the day: same button, but not "Good morning" at four in the afternoon.
+  clock.at(16, 16);
+  await bot.store.remove("template_log", { phone: PULKIT });
+  await bot.runPending();
+  m = lastTpl(PULKIT);
+  assert.equal(m.name, "task_update");
+  assert.deepEqual(m.params, ["Pulkit"]);
+  assert.deepEqual(m.payloads, ["view_tasks"]);
+
+  // A single task still carries its words in the body — flattened, but readable, and with
+  // nothing to tap. task_reminder declares no buttons, so it must be sent without a payload.
+  const b2 = setup(clock);
+  b2.bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Shalu", task: "Call the bank today" }] });
+  await b2.bot.handleMessage(text(OWNER, "Shalu call bank"));
+  m = b2.wa.to(SHALU).filter((x) => x.kind === "template").pop();
+  assert.equal(m.name, "task_reminder");
+  assert.match(m.params[1], /Call the bank today/);
+  assert.deepEqual(m.payloads, []);
+
+  // Too long to fit a template parameter: it would be cut at 900 characters, and a truncated
+  // instruction reads as a complete one. So it switches to "tap to receive" instead.
+  const b3 = setup(clock);
+  await b3.bot.deliver(b3.bot.d.byName("Shalu"), "Z".repeat(1200));
+  m = b3.wa.to(SHALU).filter((x) => x.kind === "template").pop();
+  assert.equal(m.name, "task_update");
+  assert.deepEqual(m.payloads, ["view_tasks"]);
+  // And because that template carried none of it, the whole thing still arrives on reply.
+  await b3.bot.handleMessage(text(SHALU, "ok"));
+  assert.ok(b3.wa.to(SHALU).some((x) => x.kind === "text" && x.body.includes("Z".repeat(1200))));
+
+  // A template Meta has not approved falls through to the next one rather than failing.
+  const b4 = setup(clock);
+  b4.wa.failingTemplates = ["daily_task_update", "task_update"];
+  await b4.bot.store.insert("tasks", { owner: "Pulkit", description: "Share the ad spend report",
+    status: "new", created_at: b4.bot.nowIso(), updated_at: b4.bot.nowIso(), notified: 0 });
+  await b4.bot.runPending();
+  assert.equal(b4.wa.to(PULKIT).filter((x) => x.kind === "template").pop().name, "task_reminder");
+});

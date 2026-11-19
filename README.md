@@ -231,3 +231,16 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{pending|review|nu
 | Adding a person | Master board → People → Add, or send `add Rahul 919812345678 Ryan`. Live in seconds, no deploy |
 
 **WhatsApp 24-hour rule:** free-form messages only reach people who messaged the bot in the last 24 hours, so the very first message to a new person can only be a template. The bot handles it: outside the window it holds the task, sends the approved `task_reminder` template with the task text as its second param, and on the person's reply releases only what the template could not carry - so nothing arrives twice. No one has to send "Hi" first. To open the window before there is a task to send, Ankit sends `start Narendra` (or `start all`).
+
+**Which template opens the window.** Four are approved, in two shapes: `task_reminder` and
+`meeting_invite` carry the content in their body, while `task_update` and `daily_task_update` say
+only that something is waiting and carry a **View tasks** button that opens the window when tapped.
+The bot picks by what is actually held — a meeting gets `meeting_invite`; the twice-daily list gets
+`daily_task_update` before the second round and `task_update` after it, because a numbered list run
+onto one line is not a list; anything long enough to be cut at WhatsApp’s 900-character parameter
+limit gets `task_update`, since a truncated instruction reads as a complete one; everything else
+gets `task_reminder`, so the work is read without anyone having to tap. If a template is rejected
+or still in review it falls through to the next, ending at `task_reminder`. Only `task_reminder`
+ever counts as having delivered the message, so the full text still arrives on reply in every other
+case. Override any of them with `MEETING_TEMPLATE`, `DAILY_TEMPLATE`, `TASK_TEMPLATE` or
+`FIRST_TEMPLATE`.
