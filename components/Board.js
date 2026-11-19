@@ -1,42 +1,86 @@
-// The two boards. Both render inside the sheet; the frame and the navigation
+// The two boards. Both render inside the canvas; the frame and the navigation
 // come from Shell. A team board is view-only; the master board can tick a task.
+//
+// Two structural rules hold on both:
+//
+//  · A list of short rows does not span 1240px. A five-column table stretched
+//    across the canvas leaves a 500px void between a task and its owner, so
+//    every list here pairs with a rail and the rows sit at about 800px. The
+//    exception is a full list of every task, which is long enough to earn the
+//    width.
+//  · A section states its own count and its rows do not repeat it. The
+//    previous build drew a four-cell figure strip in which three cells named a
+//    panel directly below, and a status chip on every row of a section whose
+//    heading already said that status.
 import TaskCard from "./TaskCard";
 import { PageHead } from "./Shell";
-import { Icon, Stats, Section, Empty } from "./ui";
+import { Icon, Panel, Section, Empty, Lead, Tabs, MiniLink } from "./ui";
 
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
-
-function statItems(s, caption = {}) {
-  return [
-    { label: "Open", value: s.open, caption: caption.open || "not closed or cancelled" },
-    { label: "Needs attention", value: s.attention, tone: "negative", caption: "stuck, or open 7 days or more" },
-    { label: "Stuck", value: s.stuck, caption: "waiting on you, a client or a vendor" },
-    { label: "Closed", value: s.doneWeek, caption: "in the last 7 days" },
-  ];
-}
-
-export function Pill({ href, on, children }) {
-  return (
-    <a
-      href={href}
-      aria-current={on ? "true" : undefined}
-      className={`press inline-flex h-8 items-center whitespace-nowrap rounded-control border px-2.5 text-body ${
-        on
-          ? "border-ink bg-ink text-[var(--surface)]"
-          : "border-[var(--control)] text-muted hover:border-ink hover:text-ink"
-      }`}
-    >
-      {children}
-    </a>
-  );
-}
 
 function Rows({ cards, empty, ...rest }) {
   if (!cards.length) return <Empty>{empty}</Empty>;
   return (
-    <div className="border-t border-rule">
-      {cards.map((c) => <TaskCard key={c.id} c={c} {...rest} />)}
+    <div className="overflow-hidden rounded-card border border-edge bg-surface px-5">
+      {cards.map((c) => (
+        <TaskCard key={c.id} c={c} {...rest} />
+      ))}
     </div>
+  );
+}
+
+// The rail's list: closed work, which is the one thing a board full of open
+// work cannot show.
+function ClosedRail({ cards, total, className = "" }) {
+  return (
+    <Section
+      title="Closed in the last 7 days"
+      count={total || null}
+      className={className}
+    >
+      {cards.length === 0 ? (
+        <Empty>Nothing closed yet this week.</Empty>
+      ) : (
+        <div className="overflow-hidden rounded-card border border-edge bg-surface px-4">
+          {cards.map((c) => (
+            <TaskCard key={c.id} c={c} ownerView compact />
+          ))}
+        </div>
+      )}
+    </Section>
+  );
+}
+
+// Who is carrying what. It rides beside the full open list, where the table
+// would otherwise span the canvas, and answers the question that list raises.
+function LoadRail({ rows, title = "Open per person", unit = "" }) {
+  const most = Math.max(1, ...rows.map((r) => r.open));
+  return (
+    <Section title={title} count={rows.length}>
+      <div className="overflow-hidden rounded-card border border-edge bg-surface px-4">
+        {rows.map((r) => (
+          <div key={r.name} className="border-b border-rule py-2.5 last:border-0">
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate text-body text-ink">{r.name}</span>
+              <span className="flex-none text-meta tabular text-muted">
+                {r.behind > 0 && (
+                  <span className="text-[var(--negative)]">{r.behind} behind</span>
+                )}
+                {r.behind > 0 && <span className="px-1 text-faint">·</span>}
+                {r.open}
+              </span>
+            </p>
+            {/* A 2px proportional bar, grey, so "most loaded first" is seen and
+                not only read. */}
+            <span
+              aria-hidden
+              className="mt-1.5 block h-[2px] rounded-full bg-[var(--control)]"
+              style={{ width: `${Math.round((r.open / most) * 100)}%` }}
+            />
+          </div>
+        ))}
+      </div>
+    </Section>
   );
 }
 
@@ -44,41 +88,53 @@ function Rows({ cards, empty, ...rest }) {
 export function TeamBoard({ data }) {
   const att = data.attention.length;
   const oldest = Math.max(0, ...data.attention.map((c) => c.days || 0));
-  const finding = att
-    ? `${plural(att, "task")} need attention${oldest >= 3 ? `; the oldest has been open ${plural(oldest, "day")}` : ""}.`
-    : "Nothing is stuck or overdue.";
 
   return (
     <>
       <PageHead
         title={data.title}
-        finding={finding}
+        finding={`${data.stats.open} open across the team, ${data.stats.doneWeek} closed in the last 7 days.`}
         stamp={`Updated ${data.updated}`}
       />
 
-      <Stats items={statItems(data.stats)} />
-
-      <div className="mt-7 grid gap-x-6 gap-y-7 xl:grid-cols-[1fr_300px]">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_316px]">
         <div className="min-w-0">
-          <Section title="Needs attention" count={att ? `${att}` : null}>
-            <Rows cards={data.attention} empty="Nothing stuck or overdue." />
-          </Section>
+          <Panel title="Behind" pad={false} className="mb-6">
+            <div className={`px-5 py-4 ${att ? "border-b border-edge" : ""}`}>
+              <Lead value={att}>
+                {att
+                  ? `${att === 1 ? "task is" : "tasks are"} stuck, or have gone a week without moving` +
+                    (oldest >= 3 ? `. The oldest has been open ${plural(oldest, "day")}.` : ".")
+                  : "Nothing is stuck and nothing has gone a week without moving."}
+              </Lead>
+            </div>
+            {att > 0 && (
+              <div className="px-5">
+                {data.attention.map((c) => (
+                  <TaskCard key={c.id} c={c} />
+                ))}
+              </div>
+            )}
+          </Panel>
 
-          {data.byPerson.map((p) => (
-            <Section key={p.name} title={p.name} count={`${p.cards.length} open`} className="mt-7">
+          {data.byPerson.map((p, i) => (
+            <Section
+              key={p.name}
+              title={p.name}
+              count={`${p.cards.length} open`}
+              className={i ? "mt-6" : ""}
+            >
               <Rows cards={p.cards} empty="No open tasks." />
             </Section>
           ))}
         </div>
 
-        <div className="min-w-0">
-          <Section title="Closed in the last 7 days" count={data.done.length || null}>
-            <Rows cards={data.done} empty="Nothing closed yet this week." compact />
-          </Section>
+        <div className="min-w-0 xl:sticky xl:top-8">
+          <ClosedRail cards={data.done} total={data.done.length} />
 
-          <p className="mt-6 rounded-card border border-edge bg-raised px-3 py-2.5 text-meta text-muted">
-            This board is view only. Reply to the bot on WhatsApp with your status, &ldquo;1 done, 2 working,
-            3 stuck&rdquo;, and it lands here within a minute.
+          <p className="mt-6 rounded-card border border-edge bg-surface px-4 py-3 text-meta leading-snug text-muted">
+            This board is view only. Reply to the bot on WhatsApp with your status —
+            &ldquo;1 done, 2 working, 3 stuck&rdquo; — and it lands here within a minute.
           </p>
         </div>
       </div>
@@ -88,27 +144,39 @@ export function TeamBoard({ data }) {
 
 // ── Master board ─────────────────────────────────────────────────────────
 function masterFinding(data) {
-  if (data.tab === "mine") return data.score ? `${data.score} of your own tasks.` : "You have no tasks of your own.";
+  if (data.tab === "mine") {
+    return data.score ? `${data.score}.` : "You have no tasks of your own.";
+  }
 
   const first = data.sections?.[0];
   if (data.tab === "attention" && data.view === "open") {
     const n = first?.cards.length || 0;
     const oldest = Math.max(0, ...(first?.cards.map((c) => c.days || 0) || [0]));
     return n
-      ? `Everything still open, whoever it is with${oldest >= 3 ? `. The oldest has been open ${plural(oldest, "day")}` : ""}.`
+      ? `Everything still open, whoever it is with${
+          oldest >= 3 ? `. The oldest has been open ${plural(oldest, "day")}` : ""
+        }.`
       : "Nothing is open. Every task has been closed.";
   }
   if (data.tab === "attention" && data.view === "closed") {
     const n = data.closedTotal || 0;
     if (!n) return "Nothing has been closed yet.";
-    return `${plural(n, "task")} finished so far${data.more ? `. The newest ${first?.cards.length} are below; the rest are in the CSV` : ""}.`;
+    return `${plural(n, "task")} finished so far${
+      data.more ? `. The newest ${first?.cards.length} are below; the rest are in the CSV` : ""
+    }.`;
   }
   if (data.tab === "attention") {
     const onMe = first?.cards.length || 0;
     const team = data.sections?.[1]?.cards.length || 0;
     const oldest = Math.max(0, ...(first?.cards.map((c) => c.days || 0) || [0]));
-    if (!onMe) return team ? `Nothing is waiting on you. ${plural(team, "task")} are stuck or overdue with the team.` : "Nothing is stuck and nothing is waiting on you.";
-    return `${plural(onMe, "task")} waiting on you${oldest >= 3 ? `, the oldest open ${plural(oldest, "day")}` : ""}. ${plural(team, "task")} stuck or overdue with the team.`;
+    if (!onMe) {
+      return team
+        ? `Nothing is waiting on you. ${plural(team, "task")} are stuck or overdue with the team.`
+        : "Nothing is stuck and nothing is waiting on you.";
+    }
+    return `${plural(onMe, "task")} waiting on you${
+      oldest >= 3 ? `, the oldest open ${plural(oldest, "day")}` : ""
+    }. ${plural(team, "task")} stuck or overdue with the team.`;
   }
   const open = data.stats?.open || 0;
   const people = data.sections?.filter((s) => s.cards.length).length || 0;
@@ -116,6 +184,15 @@ function masterFinding(data) {
 }
 
 export function MasterBoard({ data, boardKey }) {
+  // Every list here pairs with a rail, so no table stretches the full canvas.
+  // The archive of completed work is the exception: it is the one list long
+  // enough to earn the width, and it is read rarely.
+  const paired = data.tab === "mine" || data.tab === "attention";
+  const main = paired ? data.sections.slice(0, data.tab === "mine" ? 1 : 2) : data.sections;
+  const rail = data.tab === "mine" ? data.sections[1] : null;
+  const load =
+    data.view === "open" ? data.load : data.view === "closed" ? data.closedLoad : null;
+
   return (
     <>
       <PageHead
@@ -123,54 +200,89 @@ export function MasterBoard({ data, boardKey }) {
         finding={masterFinding(data)}
         stamp={`Updated ${data.updated}`}
         actions={
-          <a
-            href={`/board/${boardKey}/export`}
-            className="press inline-flex h-8 items-center gap-1.5 rounded-control border border-[var(--control)] px-2.5 text-small text-muted hover:border-ink hover:text-ink"
-          >
-            <Icon.download width={14} height={14} />
+          <MiniLink href={`/board/${boardKey}/export`}>
+            <Icon.download width={13} height={13} />
             CSV backup
-          </a>
+          </MiniLink>
         }
       />
 
-      {/* No tab strip on a phone: every destination is in the menu button's
-          sheet, with its counts. The row below is this screen's own filter,
-          which the sheet does not carry. */}
-
-      {/* Which tasks this screen is showing. The same list, filtered three ways:
-          what needs chasing, everything open, everything finished. */}
+      {/* Which tasks this screen is showing: the same list filtered three ways.
+          Underline tabs on a full-width rule — the previous build used filled
+          black pills, which read louder than the data they filtered. */}
       {data.views && (
-        <div className="mb-5 flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-small text-faint">Showing</span>
-          {data.views.map(([k, label, count]) => (
-            <Pill
-              key={k}
-              href={`/board/${boardKey}?tab=${data.tab}${k === "attention" ? "" : `&view=${k}`}`}
-              on={k === data.view}
+        <Tabs
+          className="mb-6"
+          items={data.views.map(([k, label, count]) => ({
+            href: `/board/${boardKey}?tab=${data.tab}${k === "attention" ? "" : `&view=${k}`}`,
+            label,
+            count,
+            on: k === data.view,
+          }))}
+        />
+      )}
+
+      <div
+        className={
+          paired ? "grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_316px]" : ""
+        }
+      >
+        <div className="min-w-0">
+          {main?.map((s, i) => (
+            <Section
+              key={i}
+              title={s.title}
+              count={s.cards.length || null}
+              className={i ? "mt-6" : ""}
             >
-              {label}
-              <span className="ml-1.5 tabular opacity-70">{count}</span>
-            </Pill>
+              {/* The heading names the state, so the rows do not repeat it. */}
+              <Rows
+                cards={s.cards}
+                empty={s.empty || "Nothing here."}
+                boardKey={boardKey}
+                tab={data.tab}
+                view={data.view}
+                hideStatus={s.hideStatus}
+                hideOwner={data.tab === "mine"}
+              />
+            </Section>
           ))}
+
+          {data.more > 0 && (
+            <p className="mt-3 text-small text-faint">
+              {data.more} older completed {data.more === 1 ? "task is" : "tasks are"} not shown. The
+              CSV backup above has every task ever.
+            </p>
+          )}
         </div>
-      )}
 
-      {data.stats && <Stats items={statItems(data.stats)} />}
-
-      {data.sections?.map((s, i) => (
-        <Section key={i} title={s.title} count={s.cards.length || null} className="mt-7">
-          <Rows cards={s.cards} empty={s.empty || "Nothing here."} boardKey={boardKey} tab={data.tab}
-            view={data.view} />
-        </Section>
-      ))}
-
-      {data.more > 0 && (
-        <p className="mt-3 text-small text-faint">
-          {data.more} older completed {data.more === 1 ? "task is" : "tasks are"} not shown. The CSV backup above has
-          every task ever.
-        </p>
-      )}
+        {/* The rail travels with a list that can run far past it, rather than
+            being stranded at the top of 500px of ground. */}
+        {paired && (
+          <div className="min-w-0 xl:sticky xl:top-8">
+            {rail ? (
+              <Section title={rail.title} count={rail.cards.length || null}>
+                {rail.cards.length === 0 ? (
+                  <Empty>{rail.empty}</Empty>
+                ) : (
+                  <div className="overflow-hidden rounded-card border border-edge bg-surface px-4">
+                    {rail.cards.map((c) => (
+                      <TaskCard key={c.id} c={c} ownerView compact hideOwner={data.tab === "mine"} />
+                    ))}
+                  </div>
+                )}
+              </Section>
+            ) : load ? (
+              <LoadRail
+                rows={load}
+                title={data.view === "closed" ? "Closed per person" : "Open per person"}
+              />
+            ) : (
+              <ClosedRail cards={data.recent || []} total={data.recentTotal} />
+            )}
+          </div>
+        )}
+      </div>
     </>
   );
 }
-

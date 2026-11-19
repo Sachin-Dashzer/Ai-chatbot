@@ -13,7 +13,8 @@ import { Section, Panel, Empty, Status } from "../../components/ui";
 export const dynamic = "force-dynamic";
 
 const WEEK = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
-const HEAD = ["M", "T", "W", "T", "F", "S", "S"];
+// Three letters, not one: "M T W T F S S" has two T's and two S's.
+const HEAD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const pad = (n) => String(n).padStart(2, "0");
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const monthOf = (ymd) => ymd.slice(0, 7);
@@ -30,6 +31,46 @@ const shiftMonth = (ym, n) => {
   m = ((m % 12) + 12) % 12;
   return `${y}-${pad(m + 1)}`;
 };
+
+// The day marks. The legend below the month renders these same components, so
+// a swatch can never drift from the mark it explains.
+//
+// Tasks assigned is the quantity the calendar is about, so it is a plain ink
+// figure; the other two are the exceptions and carry a pale tint of their own
+// meaning.
+// The figure itself turns red when some of that day's work is now behind. An
+// earlier build put a separate red dot beside the date, which fired on every
+// past day that still had anything open and so covered half the month: red is
+// a signal, not a texture, and a cell carries one mark.
+const Assigned = ({ n, behind = false }) => (
+  <span
+    title={behind ? "some of this day's work is now stuck or overdue" : undefined}
+    className={`inline-flex h-4 min-w-[16px] items-center justify-center text-small font-medium tabular ${
+      behind ? "text-[var(--negative)]" : "text-ink"
+    }`}
+  >
+    {n}
+  </span>
+);
+
+const Closed = ({ n }) => (
+  <span
+    style={{ background: "var(--pill-positive-bg)", color: "var(--pill-positive-ink)" }}
+    className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-chip px-1 text-small tabular"
+  >
+    {n}
+  </span>
+);
+
+const Timed = ({ n }) => (
+  <span
+    style={{ background: "var(--pill-warning-bg)", color: "var(--pill-warning-ink)" }}
+    className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-chip px-1 text-small tabular"
+  >
+    {n}
+  </span>
+);
+
 
 export default async function CalendarPage({ searchParams }) {
   const sp = (await searchParams) || {};
@@ -122,10 +163,13 @@ export default async function CalendarPage({ searchParams }) {
             key={v || "all"}
             href={`/calendar?m=${ym}&d=${sel}${v ? `&who=${encodeURIComponent(v)}` : ""}`}
             aria-current={who === v ? "true" : undefined}
-            className={`press inline-flex h-7 items-center rounded-control border px-2.5 text-small ${
+            // A filter selection is the neutral pill the navigation uses, not a
+            // filled near-black: the one filled button on a screen is its
+            // primary action, and choosing whose tasks to see is not that.
+            className={`press inline-flex h-7 items-center rounded-control px-2.5 text-small ${
               who === v
-                ? "border-[var(--accent)] bg-[var(--pill-accent-bg)] font-medium text-[var(--pill-accent-ink)]"
-                : "border-[var(--control)] text-muted hover:border-ink hover:text-ink"
+                ? "bg-active font-medium text-ink"
+                : "text-muted hover:bg-raised hover:text-ink"
             }`}
           >
             {label}
@@ -133,7 +177,9 @@ export default async function CalendarPage({ searchParams }) {
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+      {/* items-start: the month keeps its own height. The previous build let
+          it stretch to the day column beside it and held 2,508px of blank. */}
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <Panel
           title={monthLabel(ym)}
           pad={false}
@@ -180,61 +226,56 @@ export default async function CalendarPage({ searchParams }) {
                   key={ymd}
                   href={link(ym, ymd)}
                   aria-current={picked ? "date" : undefined}
-                  className={`press relative flex min-h-[62px] flex-col gap-1 border-b border-r border-rule p-1.5 sm:min-h-[76px] ${
-                    picked ? "bg-[var(--pill-accent-bg)]" : off ? "bg-raised/50 hover:bg-active" : "hover:bg-active"
+                  className={`press-row relative flex min-h-[56px] flex-col border-b border-r border-rule p-2 sm:min-h-[66px] ${
+                    picked
+                      ? "bg-active font-medium"
+                      : off
+                        ? "bg-raised/60 hover-row"
+                        : "hover-row"
                   }`}
                 >
                   <span className="flex items-center gap-1">
                     <span
                       className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-small tabular ${
-                        isToday ? "bg-[var(--accent)] font-medium text-white" : off ? "text-faint" : "text-ink"
+                        isToday
+                          ? "bg-[var(--hue)] font-semibold text-white"
+                          : off
+                            ? "text-faint"
+                            : "text-ink"
                       }`}
                     >
                       {+ymd.slice(8, 10)}
                     </span>
-                    {att && (
-                      <span
-                        aria-hidden
-                        title="something assigned this day is stuck or overdue"
-                        className="h-1.5 w-1.5 flex-none rounded-full bg-[var(--negative)]"
-                      />
-                    )}
                   </span>
-                  <span className="mt-auto flex flex-wrap gap-1">
-                    {b.assigned.length > 0 && (
-                      <span
-                        title={`${plural(b.assigned.length, "task")} assigned`}
-                        className="rounded-chip bg-[var(--pill-accent-bg)] px-1 text-small font-medium tabular text-[var(--pill-accent-ink)]"
-                      >
-                        {b.assigned.length}
-                      </span>
-                    )}
-                    {b.closed.length > 0 && (
-                      <span
-                        title={`${plural(b.closed.length, "task")} closed`}
-                        className="rounded-chip bg-[var(--pill-positive-bg)] px-1 text-small tabular text-[var(--pill-positive-ink)]"
-                      >
-                        {b.closed.length}
-                      </span>
-                    )}
-                    {b.timed.length > 0 && (
-                      <span
-                        title={`${plural(b.timed.length, "task")} due at a set time`}
-                        className="rounded-chip bg-[var(--pill-warning-bg)] px-1 text-small tabular text-[var(--pill-warning-ink)]"
-                      >
-                        {b.timed.length}
-                      </span>
-                    )}
+                  <span className="mt-1.5 flex flex-wrap items-center gap-1">
+                    {b.assigned.length > 0 && <Assigned n={b.assigned.length} behind={att} />}
+                    {b.closed.length > 0 && <Closed n={b.closed.length} />}
+                    {b.timed.length > 0 && <Timed n={b.timed.length} />}
                   </span>
                 </a>
               );
             })}
           </div>
-          <p className="border-t border-edge px-4 py-2 text-small text-faint sm:px-5">
-            Left figure: tasks assigned that day. Middle: tasks closed. Amber: tasks due at a set time, which ping
-            their owner 5 minutes before. A red dot means something assigned that day is now stuck or overdue.
-            Non-working days are shaded.
-          </p>
+          {/* A legend whose swatches are the marks themselves, rather than a
+              caption naming which figure is which. */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-edge px-5 py-3 text-small text-faint">
+            <span className="flex items-center gap-1.5">
+              <Assigned n={3} /> assigned
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Closed n={2} /> closed
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Timed n={1} /> due at a set time, pings 5 minutes before
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Assigned n={3} behind /> some of it now behind
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden className="h-3.5 w-5 rounded-[3px] border border-[var(--border)] bg-raised" />
+              non-working day
+            </span>
+          </div>
         </Panel>
 
         <div className="grid min-w-0 content-start gap-6">
@@ -248,16 +289,23 @@ export default async function CalendarPage({ searchParams }) {
               <Empty>Not a working day — the bot sends nothing on {dayLabel(sel)}.</Empty>
             ) : (
               <dl>
-                {slots.map((x) => (
-                  <div key={x.time + x.what} className="flex gap-3 border-b border-rule py-2 last:border-0">
-                    <dt className="w-[4.5rem] shrink-0 text-body tabular text-ink">{x.time}</dt>
-                    <dd className="min-w-0 text-body text-muted">
+                {slots.map((x, i) => (
+                  <div key={x.time + x.what} className="flex gap-3 border-b border-rule py-2.5 last:border-0">
+                    <dt className="w-[3.5rem] shrink-0 text-meta tabular text-ink">{x.time}</dt>
+                    <dd className="min-w-0 text-meta text-muted">
                       {x.what}
-                      {x.kind === "pending" && (
-                        <span className="mt-0.5 block text-small text-faint">
-                          {due.length ? `reply expected from ${due.join(", ")}` : "no reply expected today"}
-                        </span>
-                      )}
+                      {/* Only the first round names who owes a reply; the
+                          second round is the same list of names. */}
+                      {x.kind === "pending" &&
+                        slots.findIndex((y) => y.kind === "pending") === i && (
+                          <span className="mt-1 block text-small text-faint">
+                            {!due.length
+                              ? "no reply expected today"
+                              : due.length === bot.d.people.length
+                                ? `reply expected from everyone (${due.length})`
+                                : `reply expected from ${due.join(", ")}`}
+                          </span>
+                        )}
                     </dd>
                   </div>
                 ))}

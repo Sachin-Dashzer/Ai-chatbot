@@ -3,173 +3,168 @@
 @tailwind utilities;
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Ankit Desk — design tokens, WhatsApp's palette.
-   The app wears the colours of the app it is a record of: a grey-green panel
-   on the left (#f0f2f5 light, #111b21 dark), white work beside it, teal
-   (#008069 / #00a884) as the one accent on links and the selected state, and
-   the thread keeping WhatsApp's own wallpaper and bubbles. Colour otherwise
-   stays reserved for data and status.
+   Ankit Desk — design tokens.
+
+   Style: achromatic-ledger (tasteskill app sheet, seed 1939230577).
+   Its one move: no colour anywhere in the chrome. The sidebar, the bars, the
+   buttons and the selected states are ink and grey. Colour is spent only where
+   it carries a fact:
+
+     --negative  the one figure that answers a screen's question when the
+                 answer is bad, and an age that has passed a week.
+     --warning   a task due at a set clock time, and nothing else.
+     --hue       the live marks: "now" on the bot's day, today on the calendar.
+     --positive  closed work.
+
+   The budget is under 1% of the screen. The previous build spent its colour on
+   a brand band and nav badges and left every number grey; this inverts that.
+
+   Ground is a low-chroma blue-grey (#f2f4f7) — the sheet's "ledger" face. The
+   work sits on white cards one tone step above it, so depth is a tone step and
+   a hairline, never a shadow.
    ────────────────────────────────────────────────────────────────────────── */
 :root {
   color-scheme: light;
 
-  --ground: #ffffff;        /* the one surface the work sits on */
-  --surface: #ffffff;
-  --raised: #f0f2f5;        /* WhatsApp's panel: the sidebar, the top bar, a well */
-  --active: #e9edef;        /* the nav pill, a selected row — WhatsApp's selected chat */
-  --border: #e9edef;        /* panel and table edges */
-  --rule: #f0f2f5;          /* row rules, one step lighter */
-  --control: #d1d7db;       /* input and button borders, one step darker */
+  --ground: #f2f4f7;        /* the canvas and the sidebar: one plane */
+  --surface: #ffffff;       /* the work */
+  --raised: #e9ecf2;        /* a well, a nav hover, a table header band */
+  --active: #dfe3ea;        /* the nav pill and the selected row — neutral */
+  --border: #e4e8ee;        /* card and table edges, on white */
+  --rule: #eef0f4;          /* row rules, one step lighter */
+  --control: #c8cedb;       /* input and button borders, one step darker */
 
-  --text: #111b21;          /* WhatsApp's ink */
-  --muted: #54656f;         /* 5.9:1 on white — its icon grey */
-  --faint: #667781;         /* meta: 4.9:1 on white — its secondary text */
+  /* Three tiers, each ≥4.5:1 on every surface it can sit on — white, the
+     ground, --raised and the --active fill of a selected row — and 1.8× apart
+     in luminance, so they read as three greys rather than one used three ways.
+     The floor is set by the hardest case: meta text inside a selected row. */
+  --text: #0a0a0a;          /* 15.4:1 at worst */
+  --muted: #444954;         /* 7.0:1  — sentences about the data */
+  --faint: #5b6170;         /* 4.8:1  — meta, stamps, captions */
 
-  --primary: #008069;       /* the one filled button, WhatsApp's dark teal */
-  --brand: #008069;         /* the header band: WhatsApp's own green */
-  --brand-ink: #ffffff;
-  --brand-dim: #eff9f6;     /* the second line on the band: 4.6:1 on the green */
-  --badge: #008069;         /* the unread badge: a count on a green pill */
-  --badge-ink: #ffffff;
-  --accent: #008069;        /* 4.7:1 on white; links and the selected state */
-  --accent-soft: #e7f6f2;
+  --primary: #141414;       /* the one filled button: near-black, white label */
+  --primary-ink: #ffffff;
+  --hue: #1d5fbf;           /* 5.5:1 — live data marks only */
+  --hue-soft: #e8eefa;
 
-  --positive: #008069;
-  --negative: #b4252c;      /* #f15c6d is WhatsApp's red, too light on white */
+  --positive: #2e7d32;
+  --negative: #c4242a;
   --warning: #92400e;
 
-  --pill-neutral-bg: #f0f2f5; --pill-neutral-ink: #3b4a54;
-  --pill-positive-bg: #d9fdd3; --pill-positive-ink: #04493a;
-  --pill-negative-bg: #ffeced; --pill-negative-ink: #8b1f25;
-  --pill-warning-bg: #fff6e0; --pill-warning-ink: #92400e;
-  --pill-accent-bg: #d7f1e9; --pill-accent-ink: #025144;
+  --pill-neutral-bg: #e9ecf2; --pill-neutral-ink: #36393f;
+  --pill-positive-bg: #dcfae5; --pill-positive-ink: #04250e;
+  --pill-negative-bg: #ffedea; --pill-negative-ink: #831c1e;
+  --pill-warning-bg: #fffbeb; --pill-warning-ink: #92400e;
 
-  /* The chat thread */
-  --chat-ground: #efeae2;   /* WhatsApp's own wallpaper */
-  --chat-in-bg: #ffffff;    /* what the team sent */
-  --chat-in-ink: #111b21;
-  --chat-out-bg: #d9fdd3;   /* what the bot sent */
-  --chat-out-ink: #111b21;
-  --chat-meta: #667781;     /* the time and ticks inside an incoming bubble */
-  --chat-meta-out: #557c66; /* the same, on the green */
-  --chat-tick: #53bdeb;
+  /* The transcript. A record of WhatsApp, not a copy of it: the sides are told
+     apart by alignment and one tone step, the way the rest of the app tells
+     surfaces apart. No green, no wallpaper. */
+  --chat-ground: #eceff4;
+  --chat-in-bg: #ffffff;
+  --chat-out-bg: #dfe3ea;
+  --chat-meta: #5a6069;     /* 4.9:1 on both bubbles */
 
   --radius-card: 8px;
   --radius-control: 6px;
   --radius-chip: 4px;
-  --radius-bubble: 8px;
 
-  --sidebar: 228px;
-  --topbar: 48px;
-  --gap: 24px;
-  --pad: 24px;
-  --control-height: 32px;
-  --row-height: 48px;
+  --sidebar: 256px;
+  --topbar: 48px;           /* phone only; there is no desktop top bar */
+  --gap: 16px;              /* between cards, horizontally and vertically */
+  --section: 32px;          /* between bands of the page */
+  --pad: 28px;              /* canvas gutter */
+  --card-pad: 20px;
+  --nav-pitch: 34px;
+  --nav-row: 32px;
+  --control-height: 32px;   /* filters and toolbar */
+  --field-height: 40px;     /* form inputs */
+  --button-height: 36px;
+  --row-height: 44px;
 
-  /* Motion. Entering and exiting use ease-out; movement on screen uses
-     ease-in-out; nothing here runs past 240ms. */
+  /* Motion. This screen is opened many times a day, so nothing performs an
+     entrance: motion is feedback and nothing else. Entering and exiting use
+     ease-out; movement on screen uses ease-in-out; nothing runs past 240ms. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* The app is light by default — <html data-theme="light"> in app/layout.js
-   pins it, so a phone or a laptop set to dark still gets the light theme.
-   Swap that to data-theme="dark" (or drop the attribute to follow the system
-   again) and everything below takes over. */
+/* The app is light by default — <html data-theme="light"> in app/layout.js pins
+   it. Swap that to "dark", or drop the attribute to follow the device.
+   The dark palette is true neutral: no navy, no slate (0 of 6 studied dark
+   screens use either), and elevation is lightness alone. */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-
-    /* WhatsApp after dark: the near-black blue-grey, the lighter panel, and
-       the teal turned up to #00a884 so it still carries on it. */
-    --ground: #0b141a;
-    --surface: #0b141a;
-    --raised: #111b21;
-    --active: #2a3942;
-    --border: #222e35;
-    --rule: #1d282f;
-    --control: #3b4a54;
-
-    --text: #e9edef;
-    --muted: #aebac1;
-    --faint: #8696a0;
-
-    --primary: #00a884;
-    --brand: #1f2c33;       /* after dark the band drops to the panel, as the app does */
-    --brand-ink: #e9edef;
-    --brand-dim: #8696a0;
-    --badge: #00a884;
-    --badge-ink: #05221c;
-    --accent: #00a884;
-    --accent-soft: #0f2e28;
-
-    --positive: #06cf9c;
-    --negative: #f15c6d;
-    --warning: #e9b949;
-
-    --pill-neutral-bg: #202c33; --pill-neutral-ink: #d1d7db;
-    --pill-positive-bg: #0d3028; --pill-positive-ink: #06cf9c;
-    --pill-negative-bg: #3a2022; --pill-negative-ink: #f3838f;
-    --pill-warning-bg: #332a12; --pill-warning-ink: #e9b949;
-    --pill-accent-bg: #0f2e28; --pill-accent-ink: #25d3a8;
-
-    --chat-ground: #0b141a;
-    --chat-in-bg: #202c33;
-    --chat-in-ink: #e9edef;
-    --chat-out-bg: #005c4b;
-    --chat-out-ink: #e9edef;
-    --chat-meta: #8696a0;
-    --chat-meta-out: #a2c6b8;
-    --chat-tick: #53bdeb;
-  }
+  :root:not([data-theme="light"]) { color-scheme: dark; }
 }
 
-/* The same palette, chosen rather than inherited. */
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* WhatsApp after dark: the near-black blue-grey, the lighter panel, and
-     the teal turned up to #00a884 so it still carries on it. */
-  --ground: #0b141a;
-  --surface: #0b141a;
-  --raised: #111b21;
-  --active: #2a3942;
-  --border: #222e35;
-  --rule: #1d282f;
-  --control: #3b4a54;
+  --ground: #0a0a0a;
+  --surface: #141414;
+  --raised: #1f1f1f;
+  --active: #262626;
+  --border: #242424;
+  --rule: #1c1c1c;
+  --control: #3d3d3d;
 
-  --text: #e9edef;
-  --muted: #aebac1;
-  --faint: #8696a0;
+  --text: #f5f5f5;
+  --muted: #b4b4b4;
+  --faint: #949494;
 
-  --primary: #00a884;
-  --brand: #1f2c33;       /* after dark the band drops to the panel, as the app does */
-  --brand-ink: #e9edef;
-  --brand-dim: #8696a0;
-  --badge: #00a884;
-  --badge-ink: #05221c;
-  --accent: #00a884;
-  --accent-soft: #0f2e28;
+  --primary: #f5f5f5;
+  --primary-ink: #0a0a0a;
+  --hue: #7aa7e8;
+  --hue-soft: #16243a;
 
-  --positive: #06cf9c;
-  --negative: #f15c6d;
+  --positive: #3fc07a;
+  --negative: #e5566f;
   --warning: #e9b949;
 
-  --pill-neutral-bg: #202c33; --pill-neutral-ink: #d1d7db;
-  --pill-positive-bg: #0d3028; --pill-positive-ink: #06cf9c;
-  --pill-negative-bg: #3a2022; --pill-negative-ink: #f3838f;
-  --pill-warning-bg: #332a12; --pill-warning-ink: #e9b949;
-  --pill-accent-bg: #0f2e28; --pill-accent-ink: #25d3a8;
+  --pill-neutral-bg: #262626; --pill-neutral-ink: #d4d4d4;
+  --pill-positive-bg: #122a1b; --pill-positive-ink: #3fc07a;
+  --pill-negative-bg: #2c1a20; --pill-negative-ink: #e5566f;
+  --pill-warning-bg: #2b2411; --pill-warning-ink: #e9b949;
 
-  --chat-ground: #0b141a;
-  --chat-in-bg: #202c33;
-  --chat-in-ink: #e9edef;
-  --chat-out-bg: #005c4b;
-  --chat-out-ink: #e9edef;
-  --chat-meta: #8696a0;
-  --chat-meta-out: #a2c6b8;
-  --chat-tick: #53bdeb;
+  --chat-ground: #0a0a0a;
+  --chat-in-bg: #1f1f1f;
+  --chat-out-bg: #2b2b2b;
+  --chat-meta: #a3a3a3;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0a0a0a;
+    --surface: #141414;
+    --raised: #1f1f1f;
+    --active: #262626;
+    --border: #242424;
+    --rule: #1c1c1c;
+    --control: #3d3d3d;
+
+    --text: #f5f5f5;
+    --muted: #b4b4b4;
+    --faint: #949494;
+
+    --primary: #f5f5f5;
+    --primary-ink: #0a0a0a;
+    --hue: #7aa7e8;
+    --hue-soft: #16243a;
+
+    --positive: #3fc07a;
+    --negative: #e5566f;
+    --warning: #e9b949;
+
+    --pill-neutral-bg: #262626; --pill-neutral-ink: #d4d4d4;
+    --pill-positive-bg: #122a1b; --pill-positive-ink: #3fc07a;
+    --pill-negative-bg: #2c1a20; --pill-negative-ink: #e5566f;
+    --pill-warning-bg: #2b2411; --pill-warning-ink: #e9b949;
+
+    --chat-ground: #0a0a0a;
+    --chat-in-bg: #1f1f1f;
+    --chat-out-bg: #2b2b2b;
+    --chat-meta: #a3a3a3;
+  }
 }
 
 /* ── Base ──────────────────────────────────────────────────────────────── */
@@ -181,7 +176,6 @@ html {
 body {
   background: var(--ground);
   color: var(--text);
-  font-feature-settings: "cv05" 1;
 }
 
 /* Every figure keeps its width: tables, counts, ages, the clock. */
@@ -194,17 +188,12 @@ time,
 
 /* ── Browser surfaces, themed rather than left to the browser ──────────── */
 ::selection {
-  background: var(--accent-soft);
+  background: var(--active);
   color: var(--text);
 }
 
-.on-brand :focus-visible,
-.on-brand:focus-visible {
-  outline-color: var(--brand-ink);
-}
-
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--text);
   outline-offset: 2px;
   border-radius: 3px;
 }
@@ -215,7 +204,7 @@ a {
 }
 
 * {
-  caret-color: var(--accent);
+  caret-color: var(--text);
   scrollbar-color: var(--control) transparent;
   scrollbar-width: thin;
 }
@@ -236,7 +225,7 @@ a {
   background: var(--faint);
 }
 
-/* ── Disclosure (task remarks, the phone's nav) ────────────────────────── */
+/* ── Disclosure (task remarks, the phone's nav, the command list) ──────── */
 details > summary {
   list-style: none;
   cursor: pointer;
@@ -251,67 +240,62 @@ details[open] > summary > .chev {
   transform: rotate(90deg);
 }
 
-/* ── Press feedback. Every pressable thing answers the finger. ─────────── */
+/* ── Press feedback. Every pressable thing answers the finger. ──────────
+   Exact properties, never `all`: a transition on `all` would also animate the
+   outline the focus ring draws. */
 .press {
   transition: transform 140ms var(--ease-out), background-color 120ms ease,
-    border-color 120ms ease, color 120ms ease;
+    border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
 .press:active {
   transform: scale(0.97);
 }
 
+/* A table row is 44px wide and a scale would wobble the text, so a row answers
+   the press with its fill instead. */
+.press-row {
+  transition: background-color 110ms ease, box-shadow 110ms ease;
+}
+
+/* Hover belongs to a mouse. On a touch screen it fires on tap and sticks. */
+@media (hover: hover) and (pointer: fine) {
+  .hover-row:hover {
+    background: var(--raised);
+  }
+}
+
 /* ── The phone's navigation sheet ──────────────────────────────────────────
    A keyframe, not a transition: <details> flips display, which a transition
-   cannot interpolate. Entry only — closing is instant, as a menu should be. */
+   cannot interpolate. Entry only — closing is instant, as a menu should be.
+   It scales from the menu button it belongs to, not from its own centre. */
 @keyframes nav-in {
   from {
     opacity: 0;
-    transform: translateY(-6px);
+    transform: scale(0.97) translateY(-6px);
   }
 }
 details[open] > .navsheet {
+  transform-origin: top left;
   animation: nav-in 180ms var(--ease-drawer);
 }
 
+/* Reduced motion keeps what aids comprehension (opacity, colour) and drops
+   every movement. */
 @media (prefers-reduced-motion: reduce) {
+  .press:active {
+    transform: none;
+  }
+  details > summary > .chev,
+  details[open] > summary > .chev {
+    transition: none;
+  }
+  details[open] > .navsheet {
+    animation: none;
+  }
   *,
   *::before,
   *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
-  }
-  details[open] > .navsheet {
-    animation: none;
-  }
-}
-
-/* ── Chat: a stable colour per person, the way a group thread names its
-   senders. WhatsApp's own sender palette, darkened where it has to carry on
-   white. Identity, not data — it never appears anywhere else. ──────────── */
-:root {
-  --who-0: #007a6c;
-  --who-1: #b4418e;
-  --who-2: #1f6bb8;
-  --who-3: #946200;
-  --who-4: #6d4ad0;
-  --who-5: #a04a2a;
-}
-:root[data-theme="dark"] {
-  --who-0: #00a884;
-  --who-1: #ff7a9a;
-  --who-2: #53bdeb;
-  --who-3: #dfb02c;
-  --who-4: #a98bff;
-  --who-5: #ffa07a;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --who-0: #00a884;
-    --who-1: #ff7a9a;
-    --who-2: #53bdeb;
-    --who-3: #dfb02c;
-    --who-4: #a98bff;
-    --who-5: #ffa07a;
   }
 }
