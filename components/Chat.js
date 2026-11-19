@@ -54,52 +54,21 @@ const STATE = {
   none: { dot: "open", label: "—" },
 };
 
-// ── The group filter ─────────────────────────────────────────────────────
-// Ankit works one business at a time, so choosing a group narrows the list to
-// the people registered under it, and the merged thread with it. Chips rather
-// than a select: the whole roster stays one tap away either way. Choosing a
-// group closes the open chat, because that person may not be in the new one.
-function GroupFilter({ groups, group, boardKey }) {
-  if (!groups?.length) return null;
-  return (
-    <div className="flex flex-none gap-1.5 overflow-x-auto border-b border-rule px-4 py-2">
-      {[["", "All"], ...groups.map((g) => [g, g])].map(([value, label]) => {
-        const on = group === value;
-        return (
-          <a
-            key={label}
-            href={`/board/${boardKey}?tab=messages${value ? `&group=${encodeURIComponent(value)}` : ""}`}
-            aria-current={on ? "true" : undefined}
-            className={`press inline-flex h-7 flex-none items-center rounded-chip border px-2.5 text-small ${
-              on ? "border-ink bg-ink text-[var(--surface)]" : "border-[var(--control)] text-muted hover:border-ink hover:text-ink"
-            }`}
-          >
-            {label}
-          </a>
-        );
-      })}
-    </div>
-  );
-}
-
 // ── The chat list ────────────────────────────────────────────────────────
 function ChatList({ data, boardKey }) {
   // One h1 per screen: it belongs to whichever pane the reader is actually in.
   const H = data.hasSelection ? "h2" : "h1";
   const waiting = data.chats.filter((c) => c.state === "waiting").length;
-  const tail = data.group ? `&group=${encodeURIComponent(data.group)}` : "";
-  const href = (who) => `/board/${boardKey}?tab=messages&who=${encodeURIComponent(who)}${tail}`;
+  const href = (who) => `/board/${boardKey}?tab=messages&who=${encodeURIComponent(who)}`;
 
   return (
     <>
       <div className="flex h-12 flex-none items-center justify-between gap-3 border-b border-edge px-4">
-        <H className="text-body font-semibold">{data.group || "Chats"}</H>
+        <H className="text-body font-semibold">Chats</H>
         <p className="text-small text-faint">
           {data.checkinSent ? `${waiting} still to reply` : `list goes out at ${data.listTime}`}
         </p>
       </div>
-
-      <GroupFilter groups={data.groups} group={data.group} boardKey={boardKey} />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <a
@@ -115,7 +84,7 @@ function ChatList({ data, boardKey }) {
             <Icon.inbox width={16} height={16} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-body font-medium">{data.group ? `Everyone in ${data.group}` : "Everyone"}</span>
+            <span className="block text-body font-medium">Everyone</span>
             <span className="block truncate text-meta text-muted">
               All {data.chats.length} conversation{data.chats.length === 1 ? "" : "s"} in one thread
             </span>
@@ -238,7 +207,7 @@ function Thread({ data, boardKey }) {
     <>
       <div className="flex h-12 flex-none items-center gap-3 border-b border-edge px-3 sm:px-4">
         <a
-          href={`/board/${boardKey}?tab=messages${data.group ? `&group=${encodeURIComponent(data.group)}` : ""}`}
+          href={`/board/${boardKey}?tab=messages`}
           aria-label="Back to all chats"
           className="press -ml-1 flex h-8 w-8 flex-none items-center justify-center rounded-control text-muted hover:bg-active hover:text-ink lg:hidden"
         >
@@ -247,7 +216,6 @@ function Thread({ data, boardKey }) {
         {data.selected ? <Avatar name={title} size={32} /> : null}
         <div className="min-w-0 flex-1">
           <H className="truncate text-body font-semibold">{title}</H>
-          {chat && <p className="truncate text-small text-faint">{chat.business}</p>}
         </div>
         {chat && <Status dot={STATE[chat.state].dot}>{STATE[chat.state].label}</Status>}
       </div>

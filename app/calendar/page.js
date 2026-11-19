@@ -104,11 +104,11 @@ export default async function CalendarPage({ searchParams }) {
       )
     : [];
 
-  const groups = await bot.boards.nav(await bot.boards.keyFor(MASTER), "calendar");
+  const nav = await bot.boards.nav(await bot.boards.keyFor(MASTER), "calendar");
   const scoped = who ? ` · ${who === owner ? "yours" : who} only` : "";
 
   return (
-    <Shell scope="Master board" groups={groups} title="Calendar">
+    <Shell scope="Master board" sections={nav} title="Calendar">
       <PageHead
         title="Calendar"
         finding={`${plural(monthAssigned, "task")} assigned in ${monthLabel(ym)}, ${monthClosed} closed${scoped}.`}
@@ -273,7 +273,7 @@ export default async function CalendarPage({ searchParams }) {
           {timed.length > 0 && (
             <Section title="Due at a set time" count={timed.length}>
               <div className="rounded-card border border-edge px-4 sm:px-5">
-                {timed.map((c) => <TaskCard key={c.id} c={c} ownerView showBusiness compact />)}
+                {timed.map((c) => <TaskCard key={c.id} c={c} ownerView compact />)}
               </div>
             </Section>
           )}
@@ -283,7 +283,7 @@ export default async function CalendarPage({ searchParams }) {
               <Empty>Nothing was assigned on {dayLabel(sel)}.</Empty>
             ) : (
               <div className="rounded-card border border-edge px-4 sm:px-5">
-                {assigned.map((c) => <TaskCard key={c.id} c={c} ownerView showBusiness compact />)}
+                {assigned.map((c) => <TaskCard key={c.id} c={c} ownerView compact />)}
               </div>
             )}
           </Section>
@@ -291,7 +291,7 @@ export default async function CalendarPage({ searchParams }) {
           {closed.length > 0 && (
             <Section title="Closed" count={closed.length}>
               <div className="rounded-card border border-edge px-4 sm:px-5">
-                {closed.map((c) => <TaskCard key={c.id} c={c} ownerView showBusiness compact />)}
+                {closed.map((c) => <TaskCard key={c.id} c={c} ownerView compact />)}
               </div>
             </Section>
           )}
@@ -306,7 +306,7 @@ export default async function CalendarPage({ searchParams }) {
                 <Empty>Nothing would be left open.</Empty>
               ) : (
                 <div className="rounded-card border border-edge px-4 sm:px-5">
-                  {ahead.slice(0, 25).map((c) => <TaskCard key={c.id} c={c} ownerView showBusiness compact />)}
+                  {ahead.slice(0, 25).map((c) => <TaskCard key={c.id} c={c} ownerView compact />)}
                   {ahead.length > 25 && (
                     <p className="border-t border-rule py-2 text-small text-faint">{ahead.length - 25} more.</p>
                   )}

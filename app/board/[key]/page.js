@@ -37,14 +37,14 @@ export default async function BoardPage({ params, searchParams }) {
 
   if (isMaster) {
     const tab = sp?.tab || "attention";
-    const data = await bot.boards.masterBoard(tab, sp?.who || "", sp?.group || "", sp?.view || "");
-    const groups = await bot.boards.nav(key, data.tab);
+    const data = await bot.boards.masterBoard(tab, sp?.who || "", sp?.view || "");
+    const nav = await bot.boards.nav(key, data.tab);
 
     // The chat lays out and scrolls its own two panes, so it gets the whole
     // area rather than the padded canvas the other tabs use.
     if (data.tab === "people") {
       return (
-        <Shell scope="Master board" groups={groups} title={data.title}>
+        <Shell scope="Master board" sections={nav} title={data.title}>
           <People data={data} boardKey={key} ok={sp?.ok || ""} err={sp?.err || ""} />
           <Footer />
         </Shell>
@@ -53,7 +53,7 @@ export default async function BoardPage({ params, searchParams }) {
 
     if (data.tab === "messages") {
       return (
-        <Shell scope="Master board" groups={groups} title={data.title} flush>
+        <Shell scope="Master board" sections={nav} title={data.title} flush>
           <AutoRefresh seconds={120} />
           <Chat data={data} boardKey={key} />
         </Shell>
@@ -61,7 +61,7 @@ export default async function BoardPage({ params, searchParams }) {
     }
 
     return (
-      <Shell scope="Master board" groups={groups} title={data.title}>
+      <Shell scope="Master board" sections={nav} title={data.title}>
         <AutoRefresh seconds={120} />
         <MasterBoard data={data} boardKey={key} />
         <Footer />
@@ -69,9 +69,9 @@ export default async function BoardPage({ params, searchParams }) {
     );
   }
 
-  const data = await bot.boards.teamBoard(scope);
+  const data = await bot.boards.teamBoard();
   return (
-    <Shell brand={`${scope} · Ankit Desk`} title={scope}>
+    <Shell brand="Ankit Desk" title={data.title}>
       <AutoRefresh seconds={120} />
       <TeamBoard data={data} />
       <Footer />

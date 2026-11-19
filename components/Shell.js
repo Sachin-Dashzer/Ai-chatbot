@@ -35,10 +35,10 @@ function NavRow({ item }) {
   );
 }
 
-function NavBody({ groups }) {
+function NavBody({ sections }) {
   return (
     <nav className="flex-1 space-y-5 overflow-y-auto pb-4">
-      {groups.map((g, gi) => (
+      {sections.map((g, gi) => (
         <div key={g.label || gi}>
           {g.label && <p className="mb-1.5 px-2 text-small text-muted">{g.label}</p>}
           <div className="space-y-px">
@@ -50,8 +50,8 @@ function NavBody({ groups }) {
   );
 }
 
-export default function Shell({ brand = "Ankit Desk", scope, groups = [], title, action, flush = false, children }) {
-  const hasNav = groups.length > 0;
+export default function Shell({ brand = "Ankit Desk", scope, sections = [], title, action, flush = false, children }) {
+  const hasNav = sections.length > 0;
   return (
     // A flush screen is a fixed-height column at every width, so its panes do
     // their own scrolling. Without the flex chain below, the content simply
@@ -69,7 +69,7 @@ export default function Shell({ brand = "Ankit Desk", scope, groups = [], title,
               <Icon.menu />
             </summary>
             <div /* taste-skill-ignore: a real overlay menu */ className="navsheet absolute left-0 top-10 z-30 flex max-h-[80dvh] w-[17rem] flex-col overflow-hidden rounded-card border border-edge bg-raised px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.12)]">
-              <NavBody groups={groups} />
+              <NavBody sections={sections} />
             </div>
           </details>
         )}
@@ -94,7 +94,7 @@ export default function Shell({ brand = "Ankit Desk", scope, groups = [], title,
             className="sticky hidden flex-none flex-col border-r border-edge bg-raised px-3 py-3 lg:flex"
             style={{ width: "var(--sidebar)", top: "var(--topbar)", height: "calc(100dvh - var(--topbar))" }}
           >
-            <NavBody groups={groups} />
+            <NavBody sections={sections} />
           </aside>
         )}
 

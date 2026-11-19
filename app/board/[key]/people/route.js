@@ -22,9 +22,9 @@ export async function POST(req, { params }) {
   let r;
 
   if (action === "add") {
-    r = await bot.team.add({ name: get("name"), phone: get("phone"), group: get("group"), aliases: get("aliases") });
+    r = await bot.team.add({ name: get("name"), phone: get("phone"), aliases: get("aliases") });
   } else if (action === "save") {
-    r = await bot.team.save(who, { name: get("name"), phone: get("phone"), group: get("group"), alias: get("aliases") });
+    r = await bot.team.save(who, { name: get("name"), phone: get("phone"), alias: get("aliases") });
   } else if (action === "remove") {
     r = await bot.team.remove(who);
   } else {

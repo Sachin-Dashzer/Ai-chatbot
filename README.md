@@ -1,6 +1,6 @@
 # Ankit Desk – WhatsApp task bot (Next.js + MongoDB + Tailwind, JavaScript)
 
-Ankit gives tasks by WhatsApp voice note or text. The team gets them on WhatsApp, replies once a day, and the bot follows up automatically. Live web boards show the status of every business.
+Ankit gives tasks by WhatsApp voice note or text. The team gets them on WhatsApp, replies once a day, and the bot follows up automatically. Live web boards show the status of every task.
 
 **Stack:** Next.js 15 (App Router, JavaScript) · MongoDB (Atlas) · Tailwind CSS · Node 20 · node-cron · WhatsApp Cloud API · OpenAI (Whisper for voice, GPT for understanding messages).
 
@@ -17,9 +17,9 @@ Ankit gives tasks by WhatsApp voice note or text. The team gets them on WhatsApp
 | Any time | Ankit sends a voice note or text. AI turns it into tasks (several per message are fine) and confirms with task numbers |
 | Instantly | **Every task goes straight to the person**, in full, with **Done / Working / Remark** buttons under it. No ranking, no queue, no waiting for a slot |
 | 12:00 PM, 4:00 PM | ONE message per person listing everything still pending on them, and asking where each one stands. They reply once, by text or voice: "1 done, 2 working, 3 stuck – need sir's approval", or tap the buttons. This is the only list the team gets, and it is also the retry: a task WhatsApp rejected goes out here |
-| 6:00 PM | **Ankit's overview**, his alone: everything he assigned today, per person, with the group it belongs to, each one's status, the score, and what nobody has touched |
+| 6:00 PM | **Ankit's overview**, his alone: everything he assigned today, per person, each one's status, the score, and what nobody has touched |
 | 6:00 PM | One reminder, only to people who owe an answer today and haven't given one |
-| 7:00 PM | Ankit's brief: yesterday's score, pending on Ankit, anything open a week or more, each business, who didn't reply, notes |
+| 7:00 PM | Ankit's brief: yesterday's score, pending on Ankit, anything open a week or more, each person, who didn't reply, notes |
 
 Messages go out only when there is something to deliver. Unfinished tasks carry forward.
 
@@ -34,23 +34,23 @@ Messages go out only when there is something to deliver. Unfinished tasks carry 
 | `help` · `brief` · `list` | Commands · summary now · all open tasks |
 | `done 12` · `cancel 12` · `reopen 12` | Close / cancel / reopen |
 | `today` | Everything assigned today and its status (the 6 PM overview, on demand) |
-| `move 12 EPC` · `assign 12 Narendra` | Fix business / person |
+| `assign 12 Narendra` | Hand a task to someone else |
 | `Himanshu 16 – approved` | Reply on a task (forwarded; a task stuck on Ankit goes back to working) |
 | `msgs Himanshu` · `msgs` | Last messages word for word (one person / whole team) |
 | `reminder off Narendra` · `checkin Narendra mon thu` | Per-person settings (`checkin` sets the days an answer is expected; the pending list itself still goes out every work day) |
 | `pause Narendra till 25 nov` · `resume Narendra` | Leave mode (nothing gets through; held until they are back) |
-| `settings` · `boards` · `newlink EPC` | Show settings · board links · replace a leaked link |
+| `settings` · `boards` · `newlink team` | Show settings · board links · replace a leaked link |
 | `people` | The team with every number |
 | `add Rahul 919812345678 Ryan` | Add someone — reachable from that second, no deploy |
-| `edit Rahul group EPC` · `edit Rahul phone 919…` · `edit Rahul name …` · `edit Rahul alias CA Rahul` | Change one part |
+| `edit Rahul phone 919…` · `edit Rahul name …` · `edit Rahul alias CA Rahul` | Change one part |
 | `remove Rahul` | Stop everything reaching them; their history stays |
 
 ### Boards
 
 | Board | Who | What |
 |---|---|---|
-| One per business (EPC, Ryan, PHMG, Minenii, HoldPoint, Pulkit) | That team | View only. Needs attention first, tasks by person, done this week. Ankit's own tasks never shown |
-| Master | Ankit only | Tabs: Needs attention · Mine · **Messages** · **People** · each business. Tick to close, remark history per task, CSV backup. **Needs attention is also the whole task list**: the row of filters at the top switches between what needs chasing, **All open tasks** (every open task, oldest first) and **Completed** (every finished task, newest first, with the date it closed and how long it took). Ticking a task keeps you in the filter you were in. The Messages screen has a **group filter**: choose Ryan and only the people registered under Ryan are listed, and the merged thread holds only them. The People screen adds, edits and removes team members |
+| Team | The team | View only. Needs attention first, tasks by person, done this week. Ankit's own tasks never shown |
+| Master | Ankit only | Tabs: Needs attention · Mine · **Messages** · **People**. Tick to close, remark history per task, CSV backup. **Needs attention is also the whole task list**: the row of filters at the top switches between what needs chasing, **All open tasks** (every open task, oldest first) and **Completed** (every finished task, newest first, with the date it closed and how long it took). Ticking a task keeps you in the filter you were in. The Messages screen lists the whole team, with one merged thread or one person at a time. The People screen adds, edits and removes team members |
 
 ---
 
@@ -85,7 +85,7 @@ npm run build
 DEMO=1 STORE=memory npm start
 ```
 
-The console prints board links (master + each business) with sample tasks. Open them in a browser.
+The console prints board links (master + team) with sample tasks. Open them in a browser.
 
 ---
 
@@ -111,7 +111,7 @@ The console prints board links (master + each business) with sample tasks. Open 
 - `cp .env.example .env` and fill every value.
 - `people.yaml`: team numbers are filled. **Add Ankit's main WhatsApp number as `owner`** (the number he sends commands from, not the bot number).
 
-  The file is the **seed**: the first run copies its people into the database, and from then on the team is edited from the People screen or from WhatsApp, with no redeploy. The file stays the record of the **owner** (never editable from a phone or a browser — a wrong number there locks him out of his own bot) and of the **list of businesses**.
+  The file is the **seed**: the first run copies its people into the database, and from then on the team is edited from the People screen or from WhatsApp, with no redeploy. The file stays the record of the **owner** (never editable from a phone or a browser — a wrong number there locks him out of his own bot).
 
 ### 5. Templates
 ```bash
@@ -151,12 +151,12 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{pending|review|nu
 - [ ] Tap **Working** on one → the board shows it working within a minute; tap **Remark**, type a line → Ankit gets it at once
 - [ ] A long instruction with names, amounts and dates arrives whole, not summarised
 - [ ] `pending` → each person ONE list of what is still on them, asking for status; voice reply → "Updated" with each task; nobody gets a second list that evening
-- [ ] `review` → Ankit alone gets the day's overview, with every person, group and status
+- [ ] `review` → Ankit alone gets the day's overview, with every person and status
 - [ ] `today` → the same overview on demand
 - [ ] `nudge` → only non-repliers
 - [ ] `brief` → stuck item under "Pending on you"; Ankit replies "Himanshu 3 – approved" → Himanshu receives it
-- [ ] Master board → Messages → pick a group; only that group's people are listed
-- [ ] Master board → People → add someone; they appear on the list, can be assigned a task at once, and `people` in WhatsApp shows them. Edit their business, then remove them: the removal is refused while they still have an open task
+- [ ] Master board → Messages → pick a person; only their thread is shown
+- [ ] Master board → People → add someone; they appear on the list, can be assigned a task at once, and `people` in WhatsApp shows them. Edit their number, then remove them: the removal is refused while they still have an open task
 - [ ] `msgs Himanshu` → his messages word for word; master board → Messages tab shows them
 - [ ] `boards` → links; team board view-only; master tick works; CSV downloads
 - [ ] `pause Pulkit today` → nothing reaches him, everything is held; `resume Pulkit` → the next pending round delivers it
@@ -173,10 +173,10 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{pending|review|nu
 | Display name / template rejected | Use the owner's name; reword the template, keep its name |
 | Webhook won't verify | Token must match `WA_VERIFY_TOKEN`; URL must be https and end in `/api/webhook` |
 | Bot silent | Check Railway logs; sender's number must be in people.yaml (unknown numbers are ignored) |
-| Wrong business / person | `move 12 Ryan` / `assign 12 Narendra` (reassigning delivers it to the new person at once) |
+| Wrong person | `assign 12 Narendra` (reassigning delivers it to the new person at once) |
 | Same task twice | Bot replies "Already open" |
 | Ticked by mistake | `reopen 12` |
-| Board link leaked | `newlink EPC` |
+| Board link leaked | `newlink team` |
 | Someone stops replying | "No update yesterday" in brief; 6 PM reminder |
 | Server down | UptimeRobot email; missing 7 PM brief |
 | Bill surprise | $10 limits on both AI accounts |

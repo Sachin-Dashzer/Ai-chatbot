@@ -8,7 +8,7 @@
 // that explains it.
 import { getBot } from "../lib/runtime.js";
 import { HELP } from "../lib/bot.js";
-import { MASTER } from "../lib/boards.js";
+import { MASTER, TEAM } from "../lib/boards.js";
 import Shell, { PageHead } from "../components/Shell";
 import TaskCard from "../components/TaskCard";
 import CopyLink from "../components/CopyLink";
@@ -78,17 +78,13 @@ export default async function Home() {
   const rows = pendingCards.slice(0, 5);
   const oldest = Math.max(0, ...pendingCards.map((c) => c.days));
 
-  const teams = [];
-  for (const b of bot.boards.teamBusinesses()) {
-    const theirs = open.filter((t) => t.business === b && t.owner !== owner);
-    teams.push({
-      name: b,
-      key: await bot.boards.keyFor(b),
-      people: bot.d.people.filter((p) => p.business === b).map((p) => p.name).join(", ") || "nobody added yet",
-      open: theirs.length,
-      attention: theirs.filter((t) => bot.boards.needsAttention(t)).length,
-    });
-  }
+  const teamTasks = open.filter((t) => t.owner !== owner);
+  const team = {
+    key: await bot.boards.keyFor(TEAM),
+    people: bot.d.people.map((p) => p.name).join(", ") || "nobody added yet",
+    open: teamTasks.length,
+    attention: teamTasks.filter((t) => bot.boards.needsAttention(t)).length,
+  };
 
   const nowMin = toMin(bot.nowIso().slice(11, 16));
   const slots = bot.boards.slots();
@@ -99,7 +95,7 @@ export default async function Home() {
   // The one sentence under the title says how the whole team stands. The number
   // that answers this screen leads its own block below, so neither repeats the
   // other.
-  const finding = `${plural(stats.open, "task")} open across every business, ${stats.doneWeek} closed in the last 7 days.`;
+  const finding = `${plural(stats.open, "task")} open across the team, ${stats.doneWeek} closed in the last 7 days.`;
 
   const blocks = helpBlocks();
   const cut = blocks.findIndex((b) => b.head === "Commands");
@@ -107,7 +103,7 @@ export default async function Home() {
   const rest = cut === -1 ? [] : blocks.slice(cut + 1);
 
   return (
-    <Shell scope="Master board" groups={nav} title="Today">
+    <Shell scope="Master board" sections={nav} title="Today">
       <PageHead
         title="Today"
         finding={finding}
@@ -147,7 +143,7 @@ export default async function Home() {
         {rows.length > 0 && (
           <>
             <div className="px-4 sm:px-5">
-              {rows.map((c) => <TaskCard key={c.id} c={c} ownerView showBusiness />)}
+              {rows.map((c) => <TaskCard key={c.id} c={c} ownerView />)}
             </div>
             {pending.length > rows.length && (
               <p className="border-t border-rule px-4 py-2 text-small text-faint sm:px-5">
@@ -172,38 +168,35 @@ export default async function Home() {
           the table beside them and leaving a blank band at the foot. */}
       <div className="mt-6 grid items-start gap-6 xl:grid-cols-[1fr_360px]">
         <Panel
-          title="One board for each business"
-          count={`${teams.length} boards`}
-          note={<>Each team sees only its own board, and never your own tasks, so these counts are lower than the ones
-            in the menu. &ldquo;Behind&rdquo; means stuck, or untouched for a week. If a link reaches the wrong person,
-            send <span className="font-mono text-muted">newlink EPC</span>{/* taste-skill-ignore: a literal WhatsApp command */} to the bot and the old one stops working.</>}
+          title="The team's board"
+          note={<>One board for everyone on the team. It never shows your own tasks, so its counts are lower than the
+            ones in the menu. &ldquo;Behind&rdquo; means stuck, or untouched for a week. If the link reaches the wrong
+            person, send <span className="font-mono text-muted">newlink team</span>{/* taste-skill-ignore: a literal WhatsApp command */} to the bot and the old one stops working.</>}
           pad={false}
         >
           <table className="w-full text-body">
             <thead>
               <tr className="text-small text-faint">
-                <th scope="col" className="w-1/2 px-4 pb-2 pt-3 text-left font-normal sm:px-5">Business</th>
+                <th scope="col" className="w-1/2 px-4 pb-2 pt-3 text-left font-normal sm:px-5">Board</th>
                 <th scope="col" className="px-3 pb-2 pt-3 text-right font-normal">Open tasks</th>
                 <th scope="col" className="pb-2 pt-3 text-right font-normal">Behind</th>
                 <th scope="col" className="pb-2 pt-3" />
               </tr>
             </thead>
             <tbody>
-              {teams.map((t) => (
-                <tr key={t.name} className="border-t border-rule">
-                  <td className="px-4 py-2.5 align-middle sm:px-5">
-                    <a href={`/board/${t.key}`} className="text-body font-medium text-ink hover:text-[var(--accent)]">{t.name}</a>
-                    <span className="mt-0.5 block truncate text-small text-muted">{t.people}</span>
-                  </td>
-                  <td className="px-3 py-2.5 text-right align-middle tabular text-ink">{t.open}</td>
-                  <td className={`py-2.5 text-right align-middle tabular ${t.attention ? "text-ink" : "text-faint"}`}>
-                    {t.attention || "—"}
-                  </td>
-                  <td className="py-2.5 pl-3 pr-4 text-right align-middle sm:pr-5">
-                    <CopyLink path={`/board/${t.key}`} label={`Copy the ${t.name} board link`} />
-                  </td>
-                </tr>
-              ))}
+              <tr className="border-t border-rule">
+                <td className="px-4 py-2.5 align-middle sm:px-5">
+                  <a href={`/board/${team.key}`} className="text-body font-medium text-ink hover:text-[var(--accent)]">Team tasks</a>
+                  <span className="mt-0.5 block truncate text-small text-muted">{team.people}</span>
+                </td>
+                <td className="px-3 py-2.5 text-right align-middle tabular text-ink">{team.open}</td>
+                <td className={`py-2.5 text-right align-middle tabular ${team.attention ? "text-ink" : "text-faint"}`}>
+                  {team.attention || "—"}
+                </td>
+                <td className="py-2.5 pl-3 pr-4 text-right align-middle sm:pr-5">
+                  <CopyLink path={`/board/${team.key}`} label="Copy the team board link" />
+                </td>
+              </tr>
             </tbody>
           </table>
         </Panel>

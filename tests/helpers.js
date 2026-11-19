@@ -29,18 +29,18 @@ export class FakeAI {
   // test can tell a message that went through the pass from one that skipped it.
   async polish(text) { return text; }
   async parseOwner(text) {
-    if (text === VOICE.v1) return { tasks: [{ owner: "Himanshu", business: "HoldPoint", task: "Send Galaxy Royal final invoice" }] };
+    if (text === VOICE.v1) return { tasks: [{ owner: "Himanshu", task: "Send Galaxy Royal final invoice" }] };
     if (text === VOICE.v2) return { tasks: [
-      { owner: "Himanshu", business: "HoldPoint", task: "Fix Sector 76 society site visit" },
-      { owner: "Himanshu", business: "HoldPoint", task: "Send AMC quote to Galaxy Royal" },
-      { owner: "Shalu", business: "Ryan", task: "Match Oct collections vs billing" },
-      { owner: "Rajneesh", business: "EPC", task: "Oct GSTR-2B reconciliation" },
-      { owner: "me", business: "PHMG", task: "Review Goodbite reply" }] };
-    if (text.includes("Amazon")) return { tasks: [{ owner: "Pulkit", business: "Pulkit", task: "Share 7-day Amazon ad spend report" }] };
+      { owner: "Himanshu", task: "Fix Sector 76 society site visit" },
+      { owner: "Himanshu", task: "Send AMC quote to Galaxy Royal" },
+      { owner: "Shalu", task: "Match Oct collections vs billing" },
+      { owner: "Rajneesh", task: "Oct GSTR-2B reconciliation" },
+      { owner: "me", task: "Review Goodbite reply" }] };
+    if (text.includes("Amazon")) return { tasks: [{ owner: "Pulkit", task: "Share 7-day Amazon ad spend report" }] };
     // A reminder for himself with a clock time: the real prompt is given "now", so it
     // returns the moment resolved, which is what the bot stores and pings on.
-    if (/rahul/i.test(text)) return { tasks: [{ owner: "me", business: "Personal", task: "Call Mr Rahul", due_at: "2026-11-17T21:00" }] };
-    if (/courier/i.test(text)) return { tasks: [{ owner: "Pulkit", business: "Pulkit", task: "Call the courier", due_at: "2026-11-17T21:00" }] };
+    if (/rahul/i.test(text)) return { tasks: [{ owner: "me", task: "Call Mr Rahul", due_at: "2026-11-17T21:00" }] };
+    if (/courier/i.test(text)) return { tasks: [{ owner: "Pulkit", task: "Call the courier", due_at: "2026-11-17T21:00" }] };
     return { tasks: [], unclear: [text] };
   }
   async parseStatus(text, items) {
@@ -65,12 +65,11 @@ export function makeClock() {
 export function setup(clock) {
   const directory = new Directory({
     owner: { name: "Ankit", phone: OWNER },
-    businesses: ["HoldPoint", "Pulkit", "Ryan", "EPC", "PHMG", "Personal"],
     people: [
-      { name: "Himanshu", phone: HIMANSHU, business: "HoldPoint" },
-      { name: "Shalu", phone: SHALU, business: "Ryan" },
-      { name: "Rajneesh", phone: RAJNEESH, business: "EPC" },
-      { name: "Pulkit", phone: PULKIT, business: "Pulkit" },
+      { name: "Himanshu", phone: HIMANSHU },
+      { name: "Shalu", phone: SHALU },
+      { name: "Rajneesh", phone: RAJNEESH },
+      { name: "Pulkit", phone: PULKIT },
     ],
   });
   const wa = new FakeWA();

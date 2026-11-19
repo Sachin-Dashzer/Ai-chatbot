@@ -43,10 +43,10 @@ function DueMark({ children }) {
 // Who it is with on the left, when on the right. A second measure (how long a
 // finished task took) stacks under the date on the same right edge rather than
 // stealing width from the name.
-function Meta({ who, business, age, sub, old, className = "" }) {
+function Meta({ who, age, sub, old, className = "" }) {
   return (
     <p className={`mt-1 flex items-baseline justify-between gap-4 text-meta text-muted ${className}`}>
-      <span className="min-w-0 truncate">{business ? `${who} · ${business}` : who}</span>
+      <span className="min-w-0 truncate">{who}</span>
       <span className="flex-none text-right tabular">
         <span className={old ? "font-medium text-ink" : ""}>{age}</span>
         {sub && <span className="block text-faint">{sub}</span>}
@@ -57,7 +57,7 @@ function Meta({ who, business, age, sub, old, className = "" }) {
 
 // `compact` keeps the row on one stacked column — for the narrow rails, where
 // splitting it would squeeze the description to three words a line.
-export default function TaskCard({ c, boardKey, tab, view, showBusiness = false, compact = false, ownerView = Boolean(boardKey) }) {
+export default function TaskCard({ c, boardKey, tab, view, compact = false, ownerView = Boolean(boardKey) }) {
   const master = Boolean(boardKey);
   const who = ownerView && c.isMine ? "You" : c.owner;
   // A finished row carries the date it closed and how long it took to get there.
@@ -96,7 +96,7 @@ export default function TaskCard({ c, boardKey, tab, view, showBusiness = false,
 
           {/* Stacked: who and how old belong on line 2, above the disclosure.
               Split: the same facts move to their own right-aligned column. */}
-          {!compact && <Meta who={who} business={showBusiness && c.business} age={age} sub={sub} old={old} className="lg:hidden" />}
+          {!compact && <Meta who={who} age={age} sub={sub} old={old} className="lg:hidden" />}
 
           {master && c.remarks.length > 0 && (
             <details className="mt-1.5">
@@ -119,7 +119,7 @@ export default function TaskCard({ c, boardKey, tab, view, showBusiness = false,
         </div>
 
         <Meta
-          who={who} business={showBusiness && c.business} age={age} sub={sub} old={old}
+          who={who} age={age} sub={sub} old={old}
           className={compact ? "" : "hidden lg:mt-[3px] lg:flex lg:w-56 lg:flex-none"}
         />
       </div>

@@ -35,21 +35,6 @@ function Field({ label, name, defaultValue = "", placeholder, hint, required = f
   );
 }
 
-function GroupSelect({ groups, value }) {
-  return (
-    <Field label="Business" name="group">
-      {(id) => (
-        <select
-          id={id} name="group" defaultValue={value || groups[0]}
-          className="h-10 w-full rounded-control border border-[var(--control)] bg-[var(--surface)] px-2 text-body text-ink focus-visible:border-ink"
-        >
-          {groups.map((g) => <option key={g} value={g}>{g}</option>)}
-        </select>
-      )}
-    </Field>
-  );
-}
-
 const Primary = ({ children }) => (
   <button className="press inline-flex h-10 flex-none items-center rounded-control bg-ink px-3.5 text-body font-medium text-[var(--surface)]">
     {children}
@@ -73,7 +58,6 @@ function Row({ p, boardKey, open }) {
         {p.aliases && <span className="mt-0.5 block truncate text-small text-muted">also {p.aliases}</span>}
       </td>
       <td className="py-2.5 pr-3 align-top"><Number_>{p.phone}</Number_></td>
-      <td className="py-2.5 pr-3 align-top text-body text-muted">{p.business}</td>
       <td className="py-2.5 pr-3 align-top text-body text-muted">
         {p.reports}
         {!p.reminder && <span className="mt-0.5 block text-small text-faint">no 7 PM reminder</span>}
@@ -107,7 +91,7 @@ function Row({ p, boardKey, open }) {
 }
 
 export default function People({ data, boardKey, ok, err }) {
-  const { people, selected, groups, owner } = data;
+  const { people, selected, owner } = data;
   const reach = people.length - data.silent;
   const finding = people.length
     ? `${people.length === 1 ? "One person" : `${people.length} people`} on the list, ${reach} of them reachable by plain message right now.`
@@ -152,7 +136,6 @@ export default function People({ data, boardKey, ok, err }) {
                 <tr className="text-small text-faint">
                   <th scope="col" className="w-[26%] pb-2 pt-3 pr-3 text-left font-normal">Name</th>
                   <th scope="col" className="pb-2 pt-3 pr-3 text-left font-normal">WhatsApp number</th>
-                  <th scope="col" className="pb-2 pt-3 pr-3 text-left font-normal">Business</th>
                   <th scope="col" className="pb-2 pt-3 pr-3 text-left font-normal">Reports</th>
                   <th scope="col" className="pb-2 pt-3 pr-3 text-right font-normal">Open</th>
                   <th scope="col" className="pb-2 pt-3 pr-3 text-left font-normal">Last message</th>
@@ -174,7 +157,7 @@ export default function People({ data, boardKey, ok, err }) {
         {/* Editing is one person at a time, chosen from the table, so the fields always say
             whose they are. */}
         {selected ? (
-          <Panel title={selected.name} count={selected.business}>
+          <Panel title={selected.name} count={selected.phone}>
             <form method="post" action={`/board/${boardKey}/people`} className="grid gap-4">
               <input type="hidden" name="action" value="save" />
               <input type="hidden" name="who" value={selected.name} />
@@ -184,7 +167,6 @@ export default function People({ data, boardKey, ok, err }) {
                   label="WhatsApp number" name="phone" defaultValue={selected.phone} required
                   hint="A new number has never messaged the bot, so send start to open its window."
                 />
-                <GroupSelect groups={groups} value={selected.business} />
                 <Field
                   label="Other names" name="aliases" defaultValue={selected.aliases}
                   placeholder="CA Rahul, Rahul ji"
@@ -229,7 +211,6 @@ export default function People({ data, boardKey, ok, err }) {
                   label="WhatsApp number" name="phone" placeholder="919812345678" required
                   hint="With the country code. A ten-digit number takes yours."
                 />
-                <GroupSelect groups={groups} />
                 <Field
                   label="Other names" name="aliases" placeholder="CA Rahul, Rahul ji"
                   hint="Optional. What you call them in a voice note."
@@ -251,7 +232,7 @@ export default function People({ data, boardKey, ok, err }) {
               <p className="mt-1 text-body text-muted">
                 The owner is set in <span className="font-mono text-meta">people.yaml</span>{/* taste-skill-ignore: a real filename */} and
                 cannot be changed from here or from WhatsApp: a wrong number in this one field would lock
-                you out of your own bot. The businesses come from the same file.
+                you out of your own bot.
               </p>
             </div>
           </Section>
@@ -277,8 +258,8 @@ export default function People({ data, boardKey, ok, err }) {
             <dl className="divide-y divide-rule">
               {[
                 ["people", "the list with every number"],
-                ["add Rahul 919812345678 Ryan", "add someone"],
-                ["edit Rahul group EPC", "change business, phone, name or aliases"],
+                ["add Rahul 919812345678", "add someone"],
+                ["edit Rahul phone 919...", "change phone, name or aliases"],
                 ["remove Rahul", "stop everything reaching them"],
               ].map(([cmd, what]) => (
                 <div key={cmd} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-4 py-2.5 sm:px-5">

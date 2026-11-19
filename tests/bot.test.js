@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { setup, makeClock, text, voice, VOICE, OWNER, HIMANSHU, SHALU, RAJNEESH, PULKIT, tap, btn } from "./helpers.js";
+import { TEAM } from "../lib/boards.js";
 import { extractJson } from "../lib/ai.js";
 import { cronDays } from "../lib/scheduler.js";
 import { workDaySet } from "../lib/time.js";
@@ -67,7 +68,7 @@ test("example Monday: every task goes straight out, one list per round, reply, n
   const six = wa.last(OWNER).body;
   assert.match(six, /Your day/);
   assert.match(six, /ASSIGNED TODAY \(6\)/);
-  assert.match(six, /\*Himanshu\* · HoldPoint · 3 tasks/);
+  assert.match(six, /\*Himanshu\* · 3 tasks/);
   assert.match(six, /Score: 0 of 6 done/);
 
   await bot.handleMessage(voice(HIMANSHU, "h1"));
@@ -89,8 +90,8 @@ test("example Monday: every task goes straight out, one list per round, reply, n
   const brief = wa.last(OWNER).body;
   assert.ok(brief.includes("PENDING ON YOU (2)") && brief.includes("rate approval") && brief.includes("Goodbite"), brief);
   assert.ok(brief.includes("OPEN A WEEK OR MORE (0)"), brief);
-  assert.ok(brief.includes("HoldPoint: 1 done | 1 working | 1 stuck"), brief);
-  assert.ok(brief.includes("EPC: 1 done"), brief);
+  assert.ok(brief.includes("Himanshu: 1 done | 1 working | 1 stuck"), brief);
+  assert.ok(brief.includes("Rajneesh: 1 done"), brief);
   assert.ok(brief.includes("NO UPDATE YESTERDAY:* Pulkit"), brief);
 
   const stuck = (await bot.store.findOne("tasks", { stuck_on: "ankit" })).id;
@@ -155,7 +156,7 @@ test("buttons: a tap is a status update, and Remark takes the words that follow"
   const clock = makeClock(); clock.at(16, 9);
   const { bot, wa } = setup(clock);
   await bot.handleMessage(text(HIMANSHU, "Hi"));
-  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Himanshu", business: "HoldPoint",
+  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Himanshu",
     task: "Send the Galaxy Royal invoice with the revised AMC rate of 4,500 per visit" }] });
   await bot.handleMessage(text(OWNER, "Himanshu invoice"));
   const t = await bot.store.findOne("tasks", { owner: "Himanshu" });
@@ -192,7 +193,7 @@ test("buttons: a tap is a status update, and Remark takes the words that follow"
 
   // A Remark tap nobody followed up on expires with the day, so tomorrow's "1 done" is read
   // as the status reply it is and not as a remark on a task he has forgotten about.
-  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Himanshu", business: "HoldPoint", task: "Collect the Palm Grove deposit" }] });
+  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Himanshu", task: "Collect the Palm Grove deposit" }] });
   await bot.handleMessage(text(OWNER, "one more"));
   const t2 = await bot.store.findOne("tasks", { description: "Collect the Palm Grove deposit" });
   await bot.handleMessage(btn(HIMANSHU, `st:${t2.id}:remark`));
@@ -202,14 +203,14 @@ test("buttons: a tap is a status update, and Remark takes the words that follow"
   assert.equal((await bot.getTask(t2.id)).status, "done");
 });
 
-test("6 PM overview: everything assigned today, by person, group and status", async () => {
+test("6 PM overview: everything assigned today, by person and status", async () => {
   const clock = makeClock(); clock.at(16, 9);
   const { bot, wa } = setup(clock);
   for (const p of [HIMANSHU, SHALU]) await bot.handleMessage(text(p, "Hi"));
   bot.ai.parseOwner = async () => ({ tasks: [
-    { owner: "Himanshu", business: "HoldPoint", task: "Send Galaxy Royal invoice" },
-    { owner: "Himanshu", business: "HoldPoint", task: "Fix Sector 76 site visit" },
-    { owner: "Shalu", business: "Ryan", task: "Match October collections" }] });
+    { owner: "Himanshu", task: "Send Galaxy Royal invoice" },
+    { owner: "Himanshu", task: "Fix Sector 76 site visit" },
+    { owner: "Shalu", task: "Match October collections" }] });
   await bot.handleMessage(text(OWNER, "three tasks"));
   const ids = (await bot.store.find("tasks", {}, { sort: { id: 1 } })).map((t) => t.id);
   await bot.handleMessage(btn(HIMANSHU, `st:${ids[0]}:done`));
@@ -218,8 +219,8 @@ test("6 PM overview: everything assigned today, by person, group and status", as
   await bot.handleMessage(text(OWNER, "today"));
   const o = wa.last(OWNER).body;
   assert.match(o, /ASSIGNED TODAY \(3\)/);
-  assert.match(o, /\*Himanshu\* · HoldPoint · 2 tasks/);
-  assert.match(o, /\*Shalu\* · Ryan · 1 task/);
+  assert.match(o, /\*Himanshu\* · 2 tasks/);
+  assert.match(o, /\*Shalu\* · 1 task/);
   assert.match(o, /Score: 1 of 3 done/);
   assert.match(o, /1 working/);
   assert.match(o, /No word yet on: #\d+ Himanshu/);
@@ -232,31 +233,29 @@ test("6 PM overview: everything assigned today, by person, group and status", as
   assert.match(six, /ASSIGNED TODAY \(3\)/);
 });
 
-test("messages board: a group filter opens only the people registered under it", async () => {
+test("messages board: the whole team is listed, a chosen person's thread holds only theirs", async () => {
   const clock = makeClock(); clock.at(16, 9);
   const { bot } = setup(clock);
-  await bot.handleMessage(text(SHALU, "Ryan ka collection kal bhej dunga"));
-  await bot.handleMessage(text(HIMANSHU, "HoldPoint ka invoice bhej diya"));
+  await bot.handleMessage(text(SHALU, "Collection kal bhej dunga"));
+  await bot.handleMessage(text(HIMANSHU, "Invoice bhej diya"));
 
   const all = await bot.boards.masterBoard("messages", "");
   assert.deepEqual(all.chats.map((c) => c.name).sort(), ["Himanshu", "Pulkit", "Rajneesh", "Shalu"]);
-  assert.ok(all.groups.includes("Ryan") && all.groups.includes("HoldPoint") && !all.groups.includes("Personal"));
-  assert.equal(all.group, "");
+  assert.equal(all.selected, "");
 
-  const ryan = await bot.boards.masterBoard("messages", "", "Ryan");
-  assert.deepEqual(ryan.chats.map((c) => c.name), ["Shalu"]);
-  assert.equal(ryan.group, "Ryan");
-  assert.match(ryan.title, /Ryan/);
+  const shalu = await bot.boards.masterBoard("messages", "Shalu");
+  assert.equal(shalu.selected, "Shalu");
+  const thread = JSON.stringify(shalu.thread);
+  assert.ok(thread.includes("Collection kal bhej dunga") && !thread.includes("Invoice bhej diya"));
 
-  // The merged thread of a group holds only that group.
-  const thread = JSON.stringify(await bot.boards.masterBoard("messages", "~all", "Ryan"));
-  assert.ok(thread.includes("Ryan ka collection") && !thread.includes("HoldPoint ka invoice"));
+  // The merged thread holds the whole team.
+  const everyone = JSON.stringify((await bot.boards.masterBoard("messages", "~all")).thread);
+  assert.ok(everyone.includes("Collection kal bhej dunga") && everyone.includes("Invoice bhej diya"));
 
-  // Someone outside the chosen group cannot stay open in it.
-  const mixed = await bot.boards.masterBoard("messages", "Himanshu", "Ryan");
-  assert.equal(mixed.selected, "");
-  // An unknown group is ignored rather than emptying the screen.
-  assert.equal((await bot.boards.masterBoard("messages", "", "Nowhere")).chats.length, 4);
+  // Somebody who is not on the list is ignored rather than emptying the screen.
+  const unknown = await bot.boards.masterBoard("messages", "Nobody");
+  assert.equal(unknown.selected, "");
+  assert.equal(unknown.chats.length, 4);
 });
 
 test("start: the owner opens the 24-hour window before there is a task to send", async () => {
@@ -354,9 +353,9 @@ test("Ankit's own day: score, natural update, list-number reply, yesterday in br
   const clock = makeClock(); clock.at(16, 9);
   const { bot, wa } = setup(clock);
   const plan = { tasks: [
-    { owner: "me", business: "PHMG", task: "Complete CRM templates for PHMG staff" },
-    { owner: "me", business: "HoldPoint", task: "Visit Sharma ji at Sector 76" },
-    { owner: "me", business: "Personal", task: "Meet bank manager about Minenii" }] };
+    { owner: "me", task: "Complete CRM templates for PHMG staff" },
+    { owner: "me", task: "Visit Sharma ji at Sector 76" },
+    { owner: "me", task: "Meet bank manager about Minenii" }] };
   bot.ai.parseOwner = async (t, open) => t.includes("CRM") ? plan
     : { tasks: [], own_updates: [{ task_id: open.find((x) => x.description.includes("CRM")).id, status: "done" }] };
   await bot.handleMessage(text(OWNER, "Me - CRM templates, visit Sharma ji, meet bank manager"));
@@ -376,47 +375,44 @@ test("Ankit's own day: score, natural update, list-number reply, yesterday in br
   assert.ok(brief.includes("YOUR DAY YESTERDAY: 2 of 3 done") && brief.includes("Meet bank manager"), brief);
 });
 
-test("boards and safeguards: privacy, attention, tick, newlink, move, assign, duplicates, reopen, CSV", async () => {
+test("boards and safeguards: privacy, attention, tick, newlink, assign, duplicates, reopen, CSV", async () => {
   const clock = makeClock(); clock.at(16, 9);
   const { bot, wa } = setup(clock);
   bot.s.baseUrl = "https://desk.example.com";
   bot.ai.parseOwner = async () => ({ tasks: [
-    { owner: "Rajneesh", business: "EPC", task: "Oct GSTR-2B reconciliation" },
-    { owner: "Shalu", business: "Ryan", task: "Oct collections" },
-    { owner: "me", business: "EPC", task: "EPC GST templates" },
-    { owner: "me", business: "Personal", task: "Buy mediclaim" }] });
+    { owner: "Rajneesh", task: "Oct GSTR-2B reconciliation" },
+    { owner: "Shalu", task: "Oct collections" },
+    { owner: "me", task: "EPC GST templates" },
+    { owner: "me", task: "Buy mediclaim" }] });
   await bot.handleMessage(text(OWNER, "four tasks"));
   await bot.handleMessage(text(OWNER, "boards"));
   const links = wa.last(OWNER).body;
-  assert.ok(links.includes("Master (only you): https://desk.example.com/board/") && links.includes("EPC → Rajneesh") && !links.includes("Personal"));
+  assert.ok(links.includes("Master (only you): https://desk.example.com/board/") && links.includes("Team → Himanshu"));
 
-  const epcKey = await bot.boards.keyFor("EPC");
-  const team = await bot.boards.teamBoard("EPC");
-  const allTeam = JSON.stringify(team);
-  assert.ok(allTeam.includes("Oct GSTR-2B reconciliation"));
-  assert.ok(!allTeam.includes("Oct collections") && !allTeam.includes("EPC GST templates") && !allTeam.includes("mediclaim"));
+  const teamKey = await bot.boards.keyFor(TEAM);
+  // The team board is the team's work only: nothing of Ankit's own reaches it.
+  const allTeam = JSON.stringify(await bot.boards.teamBoard());
+  assert.ok(allTeam.includes("Oct GSTR-2B reconciliation") && allTeam.includes("Oct collections"));
+  assert.ok(!allTeam.includes("EPC GST templates") && !allTeam.includes("mediclaim"));
 
   // Age is what raises a flag now that nothing is ranked: a week open and still nothing.
   clock.at(17, 10);
-  assert.equal((await bot.boards.teamBoard("EPC")).attention.length, 0);
+  assert.equal((await bot.boards.teamBoard()).attention.length, 0);
   clock.at(24, 10);
-  assert.equal((await bot.boards.teamBoard("EPC")).attention.length, 1);
+  assert.equal((await bot.boards.teamBoard()).attention.length, 2);
 
   const master = await bot.boards.masterBoard("attention");
   assert.ok(JSON.stringify(master).includes("Buy mediclaim"));
-  assert.ok(JSON.stringify(await bot.boards.masterBoard("ryan")).includes("Oct collections"));
 
   const tid = (await bot.store.findOne("tasks", { description: "Buy mediclaim" })).id;
   await bot.boards.act(tid, "done");
   assert.equal((await bot.getTask(tid)).status, "done");
 
-  await bot.handleMessage(text(OWNER, "newlink EPC"));
-  assert.equal(await bot.boards.scopeOf(epcKey), null);
+  await bot.handleMessage(text(OWNER, "newlink team"));
+  assert.equal(await bot.boards.scopeOf(teamKey), null);
   assert.match(wa.last(OWNER).body, /New link/);
 
   const sid = (await bot.store.findOne("tasks", { description: "Oct collections" })).id;
-  await bot.handleMessage(text(OWNER, `move ${sid} EPC`));
-  assert.equal((await bot.getTask(sid)).business, "EPC");
   await bot.handleMessage(text(OWNER, `assign ${sid} Rajneesh`));
   assert.equal((await bot.getTask(sid)).owner, "Rajneesh");
   const m = wa.last(RAJNEESH);
@@ -433,7 +429,7 @@ test("boards and safeguards: privacy, attention, tick, newlink, move, assign, du
   assert.equal((await bot.getTask(tid)).status, "working");
 
   const csv = await bot.boards.exportCsv();
-  assert.ok(csv.startsWith("id,business,owner,description,status") && csv.includes("Buy mediclaim"));
+  assert.ok(csv.startsWith("id,owner,description,status") && csv.includes("Buy mediclaim"));
   assert.ok(!csv.includes("priority"));
 });
 
@@ -441,8 +437,8 @@ test("message log, msgs command, remark history on master board only", async () 
   const clock = makeClock(); clock.at(16, 9);
   const { bot, wa } = setup(clock);
   bot.ai.parseOwner = async () => ({ tasks: [
-    { owner: "Himanshu", business: "HoldPoint", task: "Galaxy Royal invoice" },
-    { owner: "Himanshu", business: "HoldPoint", task: "Sector 76 site visit" }] });
+    { owner: "Himanshu", task: "Galaxy Royal invoice" },
+    { owner: "Himanshu", task: "Sector 76 site visit" }] });
   await bot.handleMessage(text(OWNER, "two tasks"));
   clock.at(16, 11, 59);
   await bot.runPending();
@@ -467,11 +463,11 @@ test("message log, msgs command, remark history on master board only", async () 
   await bot.handleMessage(text(OWNER, `Himanshu ${ids[1]} - ok, confirm by Wednesday`));
   const msgs = JSON.stringify(await bot.boards.masterBoard("messages", "Himanshu"));
   assert.ok(msgs.includes("call kar lena") && msgs.includes('"voice":true'));
-  const hp = await bot.boards.masterBoard("holdpoint");
-  const card = hp.sections.flatMap((s) => s.cards).find((c) => c.id === ids[1]);
+  const open = await bot.boards.masterBoard("attention", "", "open");
+  const card = open.sections.flatMap((s) => s.cards).find((c) => c.id === ids[1]);
   assert.equal(card.remarks.length, 2);
   assert.ok(JSON.stringify(card.remarks).includes("Client moved visit to Thursday") && JSON.stringify(card.remarks).includes("confirm by Wednesday"));
-  const teamCards = JSON.stringify(await bot.boards.teamBoard("HoldPoint"));
+  const teamCards = JSON.stringify(await bot.boards.teamBoard());
   assert.ok(!teamCards.includes("confirm by Wednesday"));
 });
 
@@ -618,8 +614,8 @@ test("the team list: add, edit, remove from WhatsApp, with the rules that keep i
   assert.match(wa.last(OWNER).body, /Himanshu/);
 
   // Add, and he is a known sender from the next message on - no restart, no redeploy.
-  const added = await say("add Rahul 919812345678 Ryan");
-  assert.match(added, /Rahul\* added to Ryan/);
+  const added = await say("add Rahul 919812345678");
+  assert.match(added, /Rahul\* added/);
   assert.match(added, /919812345678/);
   assert.equal(bot.d.byName("Rahul").phone, "919812345678");
   assert.equal(bot.d.byPhone("919812345678").name, "Rahul");
@@ -627,24 +623,21 @@ test("the team list: add, edit, remove from WhatsApp, with the rules that keep i
   assert.match(wa.last("919812345678").body, /connected to Ankit Desk/);
 
   // And a task reaches him like anyone else.
-  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Rahul", business: "Ryan", task: "Send the Ryan fee register" }] });
+  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Rahul", task: "Send the Ryan fee register" }] });
   await bot.handleMessage(text(OWNER, "Rahul fee register"));
   assert.match(wa.last("919812345678").body, /fee register/);
 
   // A ten-digit number borrows the owner's country code; a wrong one is refused, not stored.
-  assert.match(await say("add Vikas 9812345679 EPC"), /added to EPC/);
+  assert.match(await say("add Vikas 9812345679"), /Vikas\* added/);
   assert.equal(bot.d.byName("Vikas").phone, "919812345679");
-  assert.match(await say("add Nikhil 12345 EPC"), /5 digits/);
-  assert.match(await say("add Nikhil 919812345678 EPC"), /already Rahul's number/);
-  assert.match(await say("add Nikhil 919812345670 Nowhere"), /not one of the businesses/);
-  assert.match(await say("add Rahul 919812345670 Ryan"), /already on the list/);
+  assert.match(await say("add Nikhil 12345"), /5 digits/);
+  assert.match(await say("add Nikhil 919812345678"), /already Rahul's number/);
+  assert.match(await say("add Rahul 919812345670"), /already on the list/);
   // A name that is already a command would eat it.
-  assert.match(await say("add Status 919812345670 Ryan"), /command/);
+  assert.match(await say("add Status 919812345670"), /command/);
   assert.equal(bot.d.people.length, 6);
 
   // Edit each part. A rename carries to everything that points at the name.
-  assert.match(await say("edit Rahul group EPC"), /moved to EPC/);
-  assert.equal(bot.d.byName("Rahul").business, "EPC");
   assert.match(await say("edit Rahul alias CA Rahul, Rahul ji"), /also answers to: CA Rahul, Rahul ji/);
   assert.equal(bot.d.byName("ca rahul").name, "Rahul");
   assert.match(await say("edit Rahul name Rahul Verma"), /is now \*Rahul Verma\*/);
@@ -668,19 +661,18 @@ test("the team list: add, edit, remove from WhatsApp, with the rules that keep i
 
   // The board's form sends every field at once and goes through the same rules. Only what
   // actually changed is written, and one bad field saves nothing before it.
-  const saved = await bot.team.save("Vikas", { name: "Vikas", phone: "919812345679", group: "PHMG", alias: "Vikas ji" });
-  assert.match(saved.ok, /Saved group and other names for \*Vikas\*/);
-  assert.equal(bot.d.byName("Vikas").business, "PHMG");
+  const saved = await bot.team.save("Vikas", { name: "Vikas", phone: "919812345679", alias: "Vikas ji" });
+  assert.match(saved.ok, /Saved other names for \*Vikas\*/);
   assert.equal(bot.d.byName("vikas ji").name, "Vikas");
   assert.match((await bot.team.save("Vikas", { phone: "919812345679" })).ok, /Nothing to change/);
-  const refused = await bot.team.save("Vikas", { group: "Ryan", phone: "123" });
+  const refused = await bot.team.save("Vikas", { alias: "Vikas bhai", phone: "123" });
   assert.match(refused.error, /3 digits/);
   // Whole or nothing: the good field beside the bad one is not written either.
-  assert.equal(bot.d.byName("Vikas").business, "PHMG");
+  assert.equal(bot.d.byName("vikas bhai"), null);
   assert.equal(bot.d.byName("Vikas").phone, "919812345679");
 
   // "remove the old banner" is a task, not a command.
-  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Vikas", business: "EPC", task: "Remove the old banner" }] });
+  bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Vikas", task: "Remove the old banner" }] });
   assert.match(await say("Vikas remove the old banner from the site"), /Assigned/);
 });
 

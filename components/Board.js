@@ -64,9 +64,9 @@ export function TeamBoard({ data }) {
             <Rows cards={data.attention} empty="Nothing stuck or overdue." />
           </Section>
 
-          {data.groups.map((g) => (
-            <Section key={g.name} title={g.name} count={`${g.cards.length} open`} className="mt-7">
-              <Rows cards={g.cards} empty="No open tasks." />
+          {data.byPerson.map((p) => (
+            <Section key={p.name} title={p.name} count={`${p.cards.length} open`} className="mt-7">
+              <Rows cards={p.cards} empty="No open tasks." />
             </Section>
           ))}
         </div>
@@ -116,8 +116,6 @@ function masterFinding(data) {
 }
 
 export function MasterBoard({ data, boardKey }) {
-  const showBusiness = data.tab === "attention" || data.tab === "mine";
-
   return (
     <>
       <PageHead
@@ -136,9 +134,8 @@ export function MasterBoard({ data, boardKey }) {
       />
 
       {/* No tab strip on a phone: every destination is in the menu button's
-          sheet, with its counts, and a second scrolling row of the same links
-          only cut the last business in half. The row below is this screen's own
-          filter, which the sheet does not carry. */}
+          sheet, with its counts. The row below is this screen's own filter,
+          which the sheet does not carry. */}
 
       {/* Which tasks this screen is showing. The same list, filtered three ways:
           what needs chasing, everything open, everything finished. */}
@@ -163,7 +160,7 @@ export function MasterBoard({ data, boardKey }) {
       {data.sections?.map((s, i) => (
         <Section key={i} title={s.title} count={s.cards.length || null} className="mt-7">
           <Rows cards={s.cards} empty={s.empty || "Nothing here."} boardKey={boardKey} tab={data.tab}
-            view={data.view} showBusiness={showBusiness} />
+            view={data.view} />
         </Section>
       ))}
 
