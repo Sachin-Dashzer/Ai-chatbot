@@ -18,5 +18,25 @@
         }
       }
     ]
+  },
+  {
+    "name": "meeting_invite",
+    "category": "UTILITY",
+    "language": "en",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hello {{1}}, Ankit has called a meeting on {{2}} about {{3}}. Please reply to this message to confirm whether you can attend.",
+        "example": {
+          "body_text": [
+            [
+              "Rahul",
+              "Thu 20 Nov, 10:00 AM",
+              "Tally data review"
+            ]
+          ]
+        }
+      }
+    ]
   }
 ]

@@ -23,6 +23,53 @@ Ankit gives tasks by WhatsApp voice note or text. The team gets them on WhatsApp
 
 Messages go out only when there is something to deliver. Unfinished tasks carry forward.
 
+### The bot picks the person, and asks when it is guessing
+
+Ankit does not have to name anyone. Each person has a **`does`** line — what they handle — set in
+`people.yaml`, on the People screen, or over WhatsApp (`edit Pulkit does GST refunds, TDS filings`).
+"File the GST refund" then finds whoever handles GST refunds.
+
+**The bot works these out by itself.** It watches the tasks Ankit assigns *by name* and, once a
+person has five or more, drafts their line from those tasks and offers it after the evening brief:
+**✅ Yes, save it / ✍️ I’ll write it / ✖️ Not now**. One person per evening at most. It never writes
+one unasked, and if the tasks show no pattern it proposes nothing rather than inventing something
+— a wrong line silently misroutes real work, which is worse than a blank one. “Not now” leaves it
+blank for two months; ignored, it asks again in a week.
+
+It acts on its own only when the step is mechanical, and asks first when it is a judgement:
+
+| The bot does it itself | The bot asks Ankit first |
+|---|---|
+| A task where he named the person | A task where it worked the person out from their `does` |
+| A reply that answers, instructs or informs | A reply that **approves** something, commits to a **rate, amount or price**, or promises a **date to a client** |
+| Status updates, reminders, the daily lists | — |
+
+When it asks, Ankit gets the message it wants to send with **Send / Someone else / Cancel** under it.
+Nothing reaches the team until he taps. **A person whose `does` is empty is never picked by guess** —
+the bot asks instead, so a blank line is a safe default, not a broken one.
+
+### Meetings
+
+"Meeting with Manish at 10" is not a task — nobody is being asked to go and do work — so it is its
+own thing:
+
+- everyone invited gets the time, what it is about and **who else is coming**, with
+  **I'll be there / Can't make it / Another time** buttons (there is nothing to mark "Done" on a
+  meeting, so a meeting never shows the task buttons);
+- they can also just reply in words — "haan 10 baje theek hai" — and Ankit hears either way;
+- it goes **on the calendar**, with who has answered and who has not;
+- **everyone is reminded 5 minutes before, Ankit included.** A task reminder goes to one person;
+  a meeting reminder goes to the room.
+
+Outside WhatsApp's 24-hour window Meta allows only an approved template, so an invite to someone
+who has not messaged in a day rides the template first and the full invitation follows the moment
+they reply. The bot uses a `meeting_invite` template for this, so the invitation reads as an invitation
+rather than "a reminder regarding…". **While that template is still in review — or if Meta ever
+rejects it — the bot falls back to `task_reminder` automatically**, so nobody is left unheard
+waiting on an approval, and nothing has to be switched on the day it is approved. Either way the
+full invitation and its buttons arrive the moment they reply, and Ankit is told which attendees
+were outside the window. Create it with `npm run templates`; `MEETING_TEMPLATE=""` turns it off.
+
 **Every task message is checked before it leaves**: the parser writes the description in corrected, fully spelled English keeping every name, amount and date Ankit gave (it no longer shortens his instruction to a label), the message is laid out the same way every time, and the three reply buttons ride under it. A tap on **Done** or **Working** updates the task exactly as typing "1 done" would, and counts as that day's answer; **Remark** asks for words and sends them to Ankit at once.
 
 **Every team message is saved word for word** (voice notes as text), and every status reply is kept as a remark on its task.

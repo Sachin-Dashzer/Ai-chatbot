@@ -5,13 +5,14 @@
 // and what would still be open on it.
 import { getBot } from "../../lib/runtime.js";
 import { MASTER } from "../../lib/boards.js";
-import { MONTHS, weekdayOf, fmtDayMon, workDaySet } from "../../lib/time.js";
+import { MONTHS, weekdayOf, fmtDayMon, fmtTime, workDaySet } from "../../lib/time.js";
 import Shell, { PageHead } from "../../components/Shell";
 import TaskCard from "../../components/TaskCard";
 import { Section, Panel, Empty, Status } from "../../components/ui";
 
 export const dynamic = "force-dynamic";
 
+const REPLY_WORD = { yes: "coming", no: "cannot come", move: "wants another time" };
 const WEEK = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 // Three letters, not one: "M T W T F S S" has two T's and two S's.
 const HEAD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -62,6 +63,17 @@ const Closed = ({ n }) => (
   </span>
 );
 
+// A meeting is the one thing on this calendar that is not a task, so it carries the one hue
+// rather than a status tint: it is a fact about the day, not work in a state.
+const Meet = ({ n }) => (
+  <span
+    style={{ background: "var(--hue-soft)", color: "var(--hue)" }}
+    className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-chip px-1 text-small font-medium tabular"
+  >
+    {n}
+  </span>
+);
+
 const Timed = ({ n }) => (
   <span
     style={{ background: "var(--pill-warning-bg)", color: "var(--pill-warning-ink)" }}
@@ -98,7 +110,7 @@ export default async function CalendarPage({ searchParams }) {
   const byDay = new Map();
   const bucket = (ymd) => {
     let b = byDay.get(ymd);
-    if (!b) byDay.set(ymd, (b = { assigned: [], closed: [], timed: [] }));
+    if (!b) byDay.set(ymd, (b = { assigned: [], closed: [], timed: [], meetings: [] }));
     return b;
   };
   for (const t of all) {
@@ -107,6 +119,12 @@ export default async function CalendarPage({ searchParams }) {
     if (t.done_at && monthOf(t.done_at) === ym) bucket(t.done_at.slice(0, 10)).closed.push(t);
     if (t.due_at && monthOf(t.due_at) === ym) bucket(t.due_at.slice(0, 10)).timed.push(t);
   }
+
+  // Meetings sit on the calendar beside the tasks: they are the other thing with a time on
+  // it, and the whole point of putting one in the bot was so it shows up here.
+  const meetings = (await bot.store.find("meetings", { status: { $ne: "cancelled" } }, { sort: { at: 1 } }))
+    .filter((m) => monthOf(m.at) === ym && (!who || m.with.includes(who) || who === owner));
+  for (const m of meetings) bucket(m.at.slice(0, 10)).meetings.push(m);
 
   const lead = WEEK.indexOf(weekdayOf(`${ym}-01`));
   const work = workDaySet(s.workDays);
@@ -119,7 +137,7 @@ export default async function CalendarPage({ searchParams }) {
   const monthClosed = [...byDay.values()].reduce((n, b) => n + b.closed.length, 0);
 
   // The selected day
-  const day = byDay.get(sel) || { assigned: [], closed: [], timed: [] };
+  const day = byDay.get(sel) || { assigned: [], closed: [], timed: [], meetings: [] };
   const assigned = await bot.boards.cards(day.assigned, true);
   const closed = await bot.boards.cards(day.closed, true);
   const timed = await bot.boards.cards([...day.timed].sort((a, b) => a.due_at.localeCompare(b.due_at)), true);
@@ -216,7 +234,7 @@ export default async function CalendarPage({ searchParams }) {
           <div className="grid grid-cols-7">
             {cells.map((ymd, i) => {
               if (!ymd) return <span key={`b${i}`} className="border-b border-r border-rule bg-raised/50" />;
-              const b = byDay.get(ymd) || { assigned: [], closed: [], timed: [] };
+              const b = byDay.get(ymd) || { assigned: [], closed: [], timed: [], meetings: [] };
               const att = b.assigned.some((t) => t.status !== "done" && bot.boards.needsAttention(t));
               const isToday = ymd === today;
               const picked = ymd === sel;
@@ -251,6 +269,7 @@ export default async function CalendarPage({ searchParams }) {
                     {b.assigned.length > 0 && <Assigned n={b.assigned.length} behind={att} />}
                     {b.closed.length > 0 && <Closed n={b.closed.length} />}
                     {b.timed.length > 0 && <Timed n={b.timed.length} />}
+                    {b.meetings.length > 0 && <Meet n={b.meetings.length} />}
                   </span>
                 </a>
               );
@@ -267,6 +286,9 @@ export default async function CalendarPage({ searchParams }) {
             </span>
             <span className="flex items-center gap-1.5">
               <Timed n={1} /> due at a set time, pings 5 minutes before
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Meet n={1} /> meeting
             </span>
             <span className="flex items-center gap-1.5">
               <Assigned n={3} behind /> some of it now behind
@@ -317,6 +339,37 @@ export default async function CalendarPage({ searchParams }) {
               </p>
             )}
           </Panel>
+
+          {day.meetings.length > 0 && (
+            <Section title="Meetings" count={day.meetings.length}>
+              <div className="overflow-hidden rounded-card border border-edge bg-surface px-4 sm:px-5">
+                {day.meetings.map((m) => {
+                  const r = m.responses || {};
+                  const answered = m.with.filter((n) => r[n]);
+                  return (
+                    <div key={m.id} className="border-b border-rule py-3 last:border-0">
+                      <p className="flex items-baseline justify-between gap-3">
+                        <span className="min-w-0 text-body text-ink">
+                          {/* taste-skill-ignore: a meeting id */}
+                          <span className="font-mono text-meta text-faint">M{m.id}</span>{" "}
+                          {m.title || "Meeting"}
+                        </span>
+                        <span className="flex-none text-meta tabular text-ink">{fmtTime(m.at)}</span>
+                      </p>
+                      <p className="mt-1 text-meta text-muted">Ankit, {m.with.join(", ")}</p>
+                      {answered.length > 0 && (
+                        <p className="mt-1 text-small text-faint">
+                          {m.with
+                            .map((n) => n + ": " + (REPLY_WORD[r[n]] || "no answer yet"))
+                            .join(" · ")}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
 
           {timed.length > 0 && (
             <Section title="Due at a set time" count={timed.length}>

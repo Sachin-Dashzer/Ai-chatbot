@@ -704,3 +704,187 @@ test("every scheduled slot has a vercel.json cron entry that covers it", async (
       `${hhmm} IST (${wantUtc} min UTC) has no cron entry within 59 min before it`);
   }
 });
+
+test("a meeting: both sides invited, answered, and reminded 5 minutes before — once", async () => {
+  const clock = makeClock(); clock.at(17, 9);
+  const { bot, wa } = setup(clock);
+  for (const p of [HIMANSHU, SHALU]) await bot.handleMessage(text(p, "Hi"));
+
+  await bot.handleMessage(text(OWNER, "meeting with Himanshu and Shalu at 4"));
+  const m = await bot.store.findOne("meetings", {});
+  assert.deepEqual(m.with, ["Himanshu", "Shalu"]);
+  assert.equal(m.at, "2026-11-17T16:00:00+05:30");
+  assert.equal(m.status, "called");
+
+  // Both attendees were invited, with the time, who else is coming, and meeting buttons —
+  // not the task buttons: there is nothing to mark "Done" on a meeting.
+  for (const p of [HIMANSHU, SHALU]) {
+    const inv = wa.last(p);
+    assert.equal(inv.kind, "buttons");
+    assert.match(inv.body, /Meeting called by Ankit/);
+    assert.match(inv.body, /04:00 PM/);
+    assert.deepEqual(inv.buttons.map((b) => b.id), [`mt:${m.id}:yes`, `mt:${m.id}:no`, `mt:${m.id}:move`]);
+  }
+  assert.match(wa.last(OWNER).body, /Meeting set/);
+  assert.match(wa.last(OWNER).body, /told Himanshu, Shalu/);
+
+  // One answers by tapping, the other in words. Both reach Ankit.
+  await bot.handleMessage(btn(HIMANSHU, `mt:${m.id}:yes`));
+  assert.match(wa.last(HIMANSHU).body, /you are down for the meeting/);
+  assert.match(wa.last(OWNER).body, /\*Himanshu\* coming/);
+  await bot.handleMessage(text(SHALU, "haan 4 baje theek hai"));
+  assert.match(wa.last(OWNER).body, /\*Shalu\* coming/);
+  assert.deepEqual((await bot.getMeeting(m.id)).responses, { Himanshu: "yes", Shalu: "yes" });
+
+  // Nothing at 3:50. At 3:55 everyone expected is reminded — Ankit included, which is what
+  // a task reminder never does.
+  clock.at(17, 15, 50);
+  assert.deepEqual((await bot.runDue()).sent, []);
+  clock.at(17, 15, 55);
+  assert.deepEqual((await bot.runDue()).sent, [`M${m.id}`]);
+  for (const p of [OWNER, HIMANSHU, SHALU]) assert.match(wa.last(p).body, /Meeting in 5 minutes/);
+
+  // At-most-once, exactly like a timed task.
+  const counts = [OWNER, HIMANSHU, SHALU].map((p) => wa.to(p).length);
+  clock.at(17, 15, 57);
+  assert.deepEqual((await bot.runDue()).sent, []);
+  assert.deepEqual([OWNER, HIMANSHU, SHALU].map((p) => wa.to(p).length), counts);
+});
+
+test("judgement calls wait for Ankit: a routed task and a reply that approves a rate", async () => {
+  const clock = makeClock(); clock.at(17, 10);
+  const { bot, wa } = setup(clock);
+  for (const p of [HIMANSHU, PULKIT]) await bot.handleMessage(text(p, "Hi"));
+
+  // He named nobody. The bot worked out Pulkit from what Pulkit handles, so it asks first
+  // and sends nothing.
+  await bot.handleMessage(text(OWNER, "file the GST refund"));
+  assert.equal(await bot.store.count("tasks", {}), 0);
+  // The confirm carries the buttons; the plain line after it is only the summary.
+  const ask = wa.to(OWNER).filter((x) => x.kind === "buttons").pop();
+  assert.match(ask.body, /I'd send this to \*Pulkit\* — handles GST refunds/);
+  assert.deepEqual(ask.buttons.map((b) => b.title), ["✅ Send", "👤 Someone else", "✖️ Cancel"]);
+  const act = await bot.store.findOne("pending_actions", {});
+
+  // Someone else: the next name he sends is the answer to that question, not a new task.
+  await bot.handleMessage(btn(OWNER, `cf:${act.id}:who`));
+  assert.match(wa.last(OWNER).body, /Who should get it/);
+  await bot.handleMessage(text(OWNER, "Himanshu"));
+  const t = await bot.store.findOne("tasks", {});
+  assert.equal(t.owner, "Himanshu");
+  assert.match(wa.last(HIMANSHU).body, /GST refund/);
+
+  // Cancel sends nothing at all.
+  await bot.handleMessage(text(OWNER, "file the GST refund"));
+  const act2 = await bot.store.findOne("pending_actions", { status: "open" });
+  await bot.handleMessage(btn(OWNER, `cf:${act2.id}:no`));
+  assert.match(wa.last(OWNER).body, /Dropped/);
+  assert.equal(await bot.store.count("tasks", {}), 1);
+
+  // A reply that commits to a rate is held the same way, and goes out on Send.
+  const task = await bot.store.insert("tasks", { owner: "Himanshu", description: "Galaxy Royal AMC quotation",
+    status: "stuck", stuck_on: "ankit", created_at: bot.nowIso(), updated_at: bot.nowIso(), notified: 1 });
+  const before = wa.to(HIMANSHU).length;
+  await bot.handleMessage(text(OWNER, "Himanshu rate approved at 4500"));
+  assert.equal(wa.to(HIMANSHU).length, before, "nothing reached Himanshu before Ankit confirmed");
+  const act3 = await bot.store.findOne("pending_actions", { status: "open" });
+  assert.match(wa.to(OWNER).filter((x) => x.kind === "buttons").pop().body, /approves a rate of 4,500/);
+  await bot.handleMessage(btn(OWNER, `cf:${act3.id}:ok`));
+  assert.match(wa.last(HIMANSHU).body, /Rate approved at 4,500/);
+
+  // A tap on something already dealt with says so rather than sending it twice.
+  await bot.handleMessage(btn(OWNER, `cf:${act3.id}:ok`));
+  assert.match(wa.last(OWNER).body, /already dealt with/);
+});
+
+test("an invite to someone outside the 24-hour window: its own template, and a fallback while that one is in review", async () => {
+  const clock = makeClock(); clock.at(17, 9);
+  const { bot, wa } = setup(clock);
+  // Neither has ever messaged the bot, so the window is shut and only a template may go.
+  await bot.handleMessage(text(OWNER, "meeting with Himanshu and Shalu at 4"));
+
+  // The meeting template, not the task one — and carrying the meeting's own facts.
+  const inv = wa.to(HIMANSHU).find((m) => m.kind === "template");
+  assert.equal(inv.name, "meeting_invite");
+  assert.deepEqual(inv.params, ["Himanshu", "17 Nov 04:00 PM", "Tally data review"]);
+  assert.equal(wa.to(HIMANSHU).filter((m) => m.kind !== "template").length, 0, "nothing else can go out yet");
+  assert.match(wa.last(OWNER).body, /have not messaged in 24h/);
+
+  // That template says a meeting was called; it is not the invitation. So when they reply,
+  // the whole invite still arrives, with its buttons.
+  await bot.handleMessage(text(HIMANSHU, "Hi"));
+  const full = wa.to(HIMANSHU).filter((m) => m.kind === "buttons").pop();
+  assert.match(full.body, /Meeting called by Ankit/);
+  assert.match(full.body, /With: Ankit, Shalu/);
+  const m = await bot.store.findOne("meetings", {});
+  assert.deepEqual(full.buttons.map((b) => b.id), [`mt:${m.id}:yes`, `mt:${m.id}:no`, `mt:${m.id}:move`]);
+
+  // While Meta still has meeting_invite in review it is rejected, and the older task
+  // template carries the invite instead. Nobody is left unheard because of a pending review.
+  const b2 = setup(clock);
+  b2.wa.failingTemplates = ["meeting_invite"];
+  await b2.bot.handleMessage(text(OWNER, "meeting with Himanshu and Shalu at 4"));
+  const fb = b2.wa.to(HIMANSHU).find((x) => x.kind === "template");
+  assert.equal(fb.name, "task_reminder");
+  assert.match(fb.params[1], /Meeting called by Ankit/);
+  assert.match(b2.wa.last(OWNER).body, /told Himanshu, Shalu/);
+});
+
+test("the bot learns what someone handles from the tasks it is given, and never writes it unasked", async () => {
+  const clock = makeClock(); clock.at(17, 9);
+  const { bot, wa } = setup(clock);
+  await bot.handleMessage(text(PULKIT, "Hi"));
+  await bot.team.edit("Pulkit", "does", ""); // a person nobody has described yet
+  const give = async (n) => {
+    for (let i = 0; i < n; i++) await bot.handleMessage(text(OWNER, `Pulkit – share the 7-day Amazon ad spend report ${i}`));
+  };
+
+  // Four tasks is not a pattern: nothing is proposed.
+  await give(4);
+  assert.equal(await bot.proposeBeat(), null);
+  assert.equal(await bot.store.count("pending_actions", {}), 0);
+
+  // The fifth makes it worth asking. It asks — and writes nothing yet.
+  await give(1);
+  assert.equal(await bot.proposeBeat(), "Pulkit");
+  const ask = wa.to(OWNER).filter((m) => m.kind === "buttons").pop();
+  assert.match(ask.body, /What does Pulkit handle/);
+  assert.match(ask.body, /From the 5 tasks/);
+  assert.match(ask.body, /Amazon ads, ad spend reports/);
+  const act = await bot.store.findOne("pending_actions", { kind: "beat" });
+  assert.deepEqual(ask.buttons.map((b) => b.title), ["✅ Yes, save it", "✍️ I'll write it", "✖️ Not now"]);
+  assert.equal((await bot.team.find("Pulkit")).does || "", "", "nothing written before he taps");
+
+  // Asked once, then left alone for a week rather than every evening.
+  assert.equal(await bot.proposeBeat(), null);
+
+  // His own words win over the draft.
+  await bot.handleMessage(btn(OWNER, `cf:${act.id}:who`));
+  assert.match(wa.last(OWNER).body, /What does \*Pulkit\* handle/);
+  await bot.handleMessage(text(OWNER, "Amazon ads, Diamond Royal, monthly ad billing"));
+  assert.equal((await bot.team.find("Pulkit")).does, "Amazon ads, Diamond Royal, monthly ad billing");
+
+  // Someone whose tasks show no pattern is never given an invented one.
+  const b2 = setup(clock);
+  await b2.bot.handleMessage(text(RAJNEESH, "Hi"));
+  for (let i = 0; i < 6; i++) {
+    await b2.bot.store.insert("tasks", { owner: "Rajneesh", description: `Thing ${i}`, status: "new",
+      created_at: b2.bot.nowIso(), updated_at: b2.bot.nowIso(), notified: 1 });
+  }
+  assert.equal(await b2.bot.proposeBeat(), null, "no pattern, so no proposal");
+  assert.equal(await b2.bot.store.count("pending_actions", { kind: "beat" }), 0);
+  assert.equal((await b2.bot.team.find("Rajneesh")).does || "", "");
+
+  // "Not now" leaves it blank and stops the asking.
+  const b3 = setup(clock);
+  await b3.bot.handleMessage(text(PULKIT, "Hi"));
+  await b3.bot.team.edit("Pulkit", "does", "");
+  for (let i = 0; i < 5; i++) await b3.bot.handleMessage(text(OWNER, `Pulkit – Amazon ad spend ${i}`));
+  await b3.bot.proposeBeat();
+  const a3 = await b3.bot.store.findOne("pending_actions", { kind: "beat" });
+  await b3.bot.handleMessage(btn(OWNER, `cf:${a3.id}:no`));
+  assert.match(b3.wa.last(OWNER).body, /never be guessed onto Pulkit/);
+  assert.equal((await b3.bot.team.find("Pulkit")).does || "", "");
+  clock.at(24, 9); // a week later
+  assert.equal(await b3.bot.proposeBeat(), null, "declined, so not asked again for two months");
+});

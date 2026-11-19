@@ -21,10 +21,10 @@ const Number_ = ({ children }) => (
   <span className="font-mono text-meta tabular text-muted">{children}</span>
 );
 
-function Field({ label, name, defaultValue = "", placeholder, hint, required = false }) {
+function Field({ label, name, defaultValue = "", placeholder, hint, required = false, wide = false }) {
   const id = `${name}-${label.replace(/\s+/g, "-")}`;
   return (
-    <p className="min-w-0">
+    <p className={`min-w-0 ${wide ? "sm:col-span-2" : ""}`}>
       <label htmlFor={id} className="mb-2 block text-body font-medium text-ink">
         {label}
       </label>
@@ -79,6 +79,15 @@ function Row({ p, boardKey, open }) {
       </td>
       <td className="py-3 pr-4 align-top">
         <Number_>{p.phone}</Number_>
+      </td>
+      {/* Blank is the thing worth seeing here: a person with nothing listed is never chosen
+          when Ankit does not name anyone, so the gap is what needs filling. */}
+      <td className="py-3 pr-4 align-top">
+        {p.does ? (
+          <span className="line-clamp-2 text-meta text-muted">{p.does}</span>
+        ) : (
+          <span className="text-meta text-faint">— not set</span>
+        )}
       </td>
       <td className="whitespace-nowrap py-3 pr-4 align-top text-meta text-muted">
         {p.reports}
@@ -163,9 +172,14 @@ export default function People({ data, boardKey, ok, err }) {
             <table className="w-full min-w-[46rem] text-body">
               <thead>
                 <tr className="text-small text-faint">
-                  <th scope="col" className="w-full py-2.5 pr-4 text-left font-normal">Name</th>
+                  <th scope="col" className="w-[18%] py-2.5 pr-4 text-left font-normal">Name</th>
                   <th scope="col" className="whitespace-nowrap py-2.5 pr-4 text-left font-normal">
                     WhatsApp number
+                  </th>
+                  {/* The widest column: names here are one word, what they handle is a
+                      sentence, and it is the field the routing depends on. */}
+                  <th scope="col" className="w-full py-2.5 pr-4 text-left font-normal">
+                    Handles
                   </th>
                   <th scope="col" className="whitespace-nowrap py-2.5 pr-4 text-left font-normal">
                     Gets a list
@@ -257,6 +271,14 @@ export default function People({ data, boardKey, ok, err }) {
                     placeholder="CA Rahul, Rahul ji"
                     hint="Optional. What you call them in a voice note."
                   />
+                  <Field
+                    label="What they handle"
+                    name="does"
+                    defaultValue={selected.does}
+                    placeholder="GST refunds, TDS filings, Ryan account"
+                    wide
+                    hint="This is how a task with no name on it finds the right person. Leave it empty and they are never picked by guess."
+                  />
                 </div>
                 <div className="mt-5 flex items-center gap-2">
                   <Button kind="primary">Save changes</Button>
@@ -307,6 +329,13 @@ export default function People({ data, boardKey, ok, err }) {
                   name="aliases"
                   placeholder="CA Rahul, Rahul ji"
                   hint="Optional. What you call them in a voice note."
+                />
+                <Field
+                  label="What they handle"
+                  name="does"
+                  placeholder="GST refunds, TDS filings, Ryan account"
+                  wide
+                  hint="This is how a task with no name on it finds the right person. Leave it empty and they are never picked by guess."
                 />
               </div>
               <div className="mt-5">

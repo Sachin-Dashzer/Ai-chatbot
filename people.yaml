@@ -2,7 +2,22 @@
 # The owner must be named "Ankit".
 # Optional per person: reminder: false  (no 7 PM reminder)
 #                      checkin_days: [mon, thu]  (default: every day)
+#                      does: "what this person handles"
 # These can also be changed later from WhatsApp, e.g. "reminder off Narendra".
+#
+# ── about `does` ──────────────────────────────────────────────────────────
+# This is what lets the bot work out WHO a task belongs to when you don't name
+# anyone: "file the GST refund" goes to whoever's `does` mentions GST refunds.
+# Write it as a plain list of the work they actually handle — accounts, clients,
+# sites, systems. The more specific, the better it routes.
+#
+# The three filled in below were drafted from your own task history (24 tasks in
+# the database). The rest have no history to draft from, so they are BLANK ON
+# PURPOSE — nothing was invented. A person with an empty `does` is never guessed
+# at: the bot asks you instead of picking them.
+#
+# You can also change these from WhatsApp:  edit Sachin does CRM, WhatsApp, TDS
+# or from the People screen.
 
 owner:
   name: Ankit
@@ -11,33 +26,55 @@ owner:
 people:
   - name: Himanshu
     phone: "917417290307"
+    does: ""            # TODO: what does Himanshu handle?
 
   - name: Pulkit
     phone: "918077158402"
+    does: "Diamond Royal account — locks, site details and updates on it"
 
   - name: Manish
     phone: "919555067072"
     aliases: [CA Manish, Manish ji]
+    does: "Tally data and reconciliations (Ryan, Medhi, CP); GST refunds; import coordination with Pradeep"
 
   - name: Shalu
     phone: "918766336592"
+    does: ""            # TODO: what does Shalu handle?
 
   - name: Rajnish
     phone: "919015595502"
     aliases: [Rajneesh, Rajnesh]
     checkin_days: [mon, thu]
+    does: ""            # TODO: what does Rajnish handle?
 
   - name: Narendra
     phone: "918445431564"
     checkin_days: [mon, thu]
+    does: ""            # TODO: what does Narendra handle?
 
   - name: Praveen
     phone: "917289846324"
     aliases: [CA Praveen, Parveen]
+    does: ""            # TODO: only one task in history mentioned Praveen, and as a
+                        # source rather than an owner — not enough to draft from.
 
   - name: Piyush
     phone: "919654123003"
     aliases: [CA Piyush, Piyush ji]
+    does: ""            # TODO: what does Piyush handle?
 
   - name: Sachin
     phone: "918287037611"
+    does: "CRM (database and templates); the WhatsApp system; sharing client data (Ram & Associates, RIAN, Bluebell); TDS refunds"
+
+  # ── your admin ────────────────────────────────────────────────────────────
+  # You said meetings should be able to include "admin". Add them here with their
+  # real WhatsApp number and uncomment, or add from WhatsApp:
+  #     add Admin 919812345678
+  # then:
+  #     edit Admin does office admin, scheduling, paperwork
+  #
+  # - name: Admin
+  #   phone: "9198XXXXXXXX"
+  #   aliases: [admin, office]
+  #   does: "office administration, scheduling and paperwork"
