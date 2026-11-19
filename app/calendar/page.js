@@ -1,8 +1,8 @@
 // Calendar: the same tasks as the boards, read by day instead of by person.
 // A task sits on the day it was assigned and, once closed, also on the day it
-// was closed — those are the only two dates a task has. The day panel adds the
-// bot's own schedule for that day, so a date ahead still has something to say,
-// and what would still be open on it.
+// was closed — those are the only two dates a task has. A date ahead still has
+// something to say for itself: the meetings called for it, anything due at a set
+// time on it, and what would still be open by then.
 import { getBot } from "../../lib/runtime.js";
 import { MASTER } from "../../lib/boards.js";
 import { MONTHS, weekdayOf, fmtDayMon, fmtTime, workDaySet } from "../../lib/time.js";
@@ -141,17 +141,6 @@ export default async function CalendarPage({ searchParams }) {
   const assigned = await bot.boards.cards(day.assigned, true);
   const closed = await bot.boards.cards(day.closed, true);
   const timed = await bot.boards.cards([...day.timed].sort((a, b) => a.due_at.localeCompare(b.due_at)), true);
-  const isWork = work.has(weekdayOf(sel));
-  const slots = isWork ? bot.boards.slots() : [];
-
-  // Who is expected to report on that day, and who is paused through it.
-  const due = [];
-  const paused = [];
-  for (const p of bot.d.people) {
-    if (who && p.name !== who) continue;
-    if (await bot.cfg.paused(p.name, sel)) paused.push(p.name);
-    else if (isWork && (await bot.cfg.checkinDays(p.name)).includes(weekdayOf(sel))) due.push(p.name);
-  }
 
   // From today on, whatever is still open is part of that day too.
   const ahead = sel >= today
@@ -301,45 +290,6 @@ export default async function CalendarPage({ searchParams }) {
         </Panel>
 
         <div className="grid min-w-0 content-start gap-6">
-          <Panel
-            title={dayLabel(sel)}
-            action={
-              <span className="text-small text-faint">{sel === today ? "today" : sel > today ? "ahead" : "past"}</span>
-            }
-          >
-            {slots.length === 0 ? (
-              <Empty>Not a working day — the bot sends nothing on {dayLabel(sel)}.</Empty>
-            ) : (
-              <dl>
-                {slots.map((x, i) => (
-                  <div key={x.time + x.what} className="flex gap-3 border-b border-rule py-2.5 last:border-0">
-                    <dt className="w-[3.5rem] shrink-0 text-meta tabular text-ink">{x.time}</dt>
-                    <dd className="min-w-0 text-meta text-muted">
-                      {x.what}
-                      {/* Only the first round names who owes a reply; the
-                          second round is the same list of names. */}
-                      {x.kind === "pending" &&
-                        slots.findIndex((y) => y.kind === "pending") === i && (
-                          <span className="mt-1 block text-small text-faint">
-                            {!due.length
-                              ? "no reply expected today"
-                              : due.length === bot.d.people.length
-                                ? `reply expected from everyone (${due.length})`
-                                : `reply expected from ${due.join(", ")}`}
-                          </span>
-                        )}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-            {paused.length > 0 && (
-              <p className="mt-3 border-t border-rule pt-3 text-small text-faint">
-                Paused on this day: {paused.join(", ")}. Nothing reaches them until they are back.
-              </p>
-            )}
-          </Panel>
-
           {day.meetings.length > 0 && (
             <Section title="Meetings" count={day.meetings.length}>
               <div className="overflow-hidden rounded-card border border-edge bg-surface px-4 sm:px-5">
