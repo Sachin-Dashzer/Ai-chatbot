@@ -285,7 +285,7 @@ test("unknown numbers and duplicates ignored, unclear tasks reported", async () 
   const { bot, wa } = setup(clock);
   const msg = text(OWNER, "something vague");
   await bot.handleMessage(msg);
-  assert.match(wa.last(OWNER).body, /Couldn't tell/);
+  assert.match(wa.last(OWNER).body, /couldn't tell who this is for/i);
   await bot.handleMessage(text("919999999999", "hi"));
   assert.equal(wa.to("919999999999").length, 0);
   const n = wa.sent.length;
@@ -620,7 +620,7 @@ test("the team list: add, edit, remove from WhatsApp, with the rules that keep i
   assert.equal(bot.d.byName("Rahul").phone, "919812345678");
   assert.equal(bot.d.byPhone("919812345678").name, "Rahul");
   await bot.handleMessage(text("919812345678", "Hi"));
-  assert.match(wa.last("919812345678").body, /connected to Ankit Desk/);
+  assert.match(wa.last("919812345678").body, /connected to Ankit's desk/);
 
   // And a task reaches him like anyone else.
   bot.ai.parseOwner = async () => ({ tasks: [{ owner: "Rahul", task: "Send the Ryan fee register" }] });
@@ -778,7 +778,7 @@ test("judgement calls wait for Ankit: a routed task and a reply that approves a 
   await bot.handleMessage(text(OWNER, "file the GST refund"));
   const act2 = await bot.store.findOne("pending_actions", { status: "open" });
   await bot.handleMessage(btn(OWNER, `cf:${act2.id}:no`));
-  assert.match(wa.last(OWNER).body, /Dropped/);
+  assert.match(wa.last(OWNER).body, /dropped/i);
   assert.equal(await bot.store.count("tasks", {}), 1);
 
   // A reply that commits to a rate is held the same way, and goes out on Send.
@@ -941,4 +941,157 @@ test("the right template for what is waiting, and the button payload only where 
     status: "new", created_at: b4.bot.nowIso(), updated_at: b4.bot.nowIso(), notified: 0 });
   await b4.bot.runPending();
   assert.equal(b4.wa.to(PULKIT).filter((x) => x.kind === "template").pop().name, "task_reminder");
+});
+
+test("Love remembers: a lasting fact rides every prompt, a habit pings itself, and forget ends it", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa, ai } = setup(clock);
+
+  // A fact. It is confirmed in her own voice, and it is one memory however often he says it.
+  await bot.handleMessage(text(OWNER, "remember I don't take calls after 9 pm"));
+  assert.match(wa.last(OWNER).body, /I'll remember that: Does not take calls after 9 PM/);
+  await bot.handleMessage(text(OWNER, "remember I don't take calls after 9 pm"));
+  assert.equal((await bot.memories("fact")).length, 1);
+
+  // A habit: times she chose, confirmed with the number that undoes it.
+  await bot.handleMessage(text(OWNER, "remind me to drink water"));
+  const habit = (await bot.memories("reminder"))[0];
+  assert.deepEqual(habit.times, ["11:00", "14:00", "17:00"]);
+  assert.match(wa.last(OWNER).body, /remind you to drink water at 11:00, 14:00, 17:00/);
+  assert.match(wa.last(OWNER).body, new RegExp(`forget ${habit.id}`));
+
+  // 11 AM: once, and not again a minute later.
+  clock.at(16, 11);
+  await bot.runDue();
+  assert.match(wa.last(OWNER).body, /glass of water/);
+  const n = wa.to(OWNER).length;
+  clock.at(16, 11, 1);
+  await bot.runDue();
+  assert.equal(wa.to(OWNER).length, n, "one ping per slot");
+
+  // The 2 PM slot is noticed at half past three - too late to be a reminder, so it is
+  // dropped rather than sent as a surprise, and 5 PM still arrives on time.
+  clock.at(16, 15, 30);
+  await bot.runDue();
+  assert.equal(wa.to(OWNER).length, n, "an hour-late reminder is not sent");
+  clock.at(16, 17, 2);
+  await bot.runDue();
+  assert.equal(wa.to(OWNER).length, n + 1, "the next slot still comes");
+
+  // Everything she holds, numbered, and the number works.
+  await bot.handleMessage(text(OWNER, "memory"));
+  assert.match(wa.last(OWNER).body, /Does not take calls after 9 PM/);
+  assert.match(wa.last(OWNER).body, /drink water — 11:00, 14:00, 17:00/);
+  await bot.handleMessage(text(OWNER, `forget ${habit.id}`));
+  assert.match(wa.last(OWNER).body, /won't remind you to drink water/);
+  clock.at(17, 11);
+  const before = wa.to(OWNER).length;
+  await bot.runDue();
+  assert.equal(wa.to(OWNER).length, before, "forgotten means forgotten");
+
+  // Nothing in the message was work, a command or a status, so she answers as herself - and
+  // what she knows about him was in the prompt she answered from.
+  await bot.handleMessage(text(OWNER, "thank you, that's perfect"));
+  assert.equal(wa.last(OWNER).body, "Any time, Ankit 💛");
+  assert.match(ai.lastChatSystem, /Does not take calls after 9 PM/);
+  assert.match(ai.lastChatSystem, /You are Love/);
+});
+
+test("Love keeps him in the loop: his own list at noon, every tap as it happens, what's ahead on demand", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  for (const p of [HIMANSHU, SHALU]) await bot.handleMessage(text(p, "Hi"));
+  await bot.handleMessage(voice(OWNER, "v2"));           // five tasks, one of them his own
+  await bot.handleMessage(text(OWNER, "meeting with Himanshu and Shalu at 4"));
+
+  // Noon: the team get their list, and so does he.
+  clock.at(16, 12);
+  wa.sent.length = 0;
+  await bot.runPending();
+  const his = wa.to(OWNER);
+  assert.equal(his.length, 1);
+  assert.match(his[0].body, /Pending with you/);
+  assert.match(his[0].body, /Goodbite/);
+  // And its numbering is the one he answers to.
+  await bot.handleMessage(text(OWNER, "1 done"));
+  assert.equal((await bot.openTasks("Ankit")).length, 0);
+
+  // A tap from Himanshu reaches him at once, carrying the work and not just a number.
+  const open = (await bot.openTasks("Himanshu"))[0];
+  await bot.handleMessage(btn(HIMANSHU, `st:${open.id}:done`));
+  assert.match(wa.last(OWNER).body, /\*Himanshu\* just replied/);
+  assert.match(wa.last(OWNER).body, new RegExp(`#${open.id} ${open.description}`));
+
+  // So does a status he typed instead of tapping.
+  await bot.handleMessage(text(SHALU, "1 done"));
+  assert.match(wa.last(OWNER).body, /\*Shalu\* just replied/);
+  assert.match(wa.last(OWNER).body, /Oct collections/);
+
+  // What is ahead, on demand: the meeting, the day it falls on, and who has not answered.
+  await bot.handleMessage(text(OWNER, "schedule"));
+  const ahead = wa.last(OWNER).body;
+  assert.match(ahead, /What's ahead/);
+  assert.match(ahead, /Tomorrow/);
+  assert.match(ahead, /Tally data review/);
+  assert.match(ahead, /still waiting on Himanshu, Shalu/);
+
+  // And at 7 PM it is in the brief, the night before, with the rest of what is waiting.
+  clock.at(16, 19);
+  await bot.runBrief();
+  const brief = wa.last(OWNER).body;
+  assert.match(brief, /TOMORROW/);
+  assert.match(brief, /Tally data review/);
+});
+
+test("a meeting moved and a meeting called off: everyone asked again, reminded at the new time, told when it ends", async () => {
+  const clock = makeClock(); clock.at(16, 10);
+  const { bot, wa } = setup(clock);
+  for (const p of [HIMANSHU, SHALU]) await bot.handleMessage(text(p, "Hi"));
+  await bot.handleMessage(text(OWNER, "meeting with Himanshu and Shalu at 4"));
+  const m0 = (await bot.upcomingMeetings())[0];
+  await bot.handleMessage(btn(HIMANSHU, `mt:${m0.id}:yes`));
+  assert.equal((await bot.getMeeting(m0.id)).responses.Himanshu, "yes");
+
+  // Moved. Everyone is invited again, not merely told: they answered about another hour, so
+  // the answers go and the buttons come back.
+  wa.sent.length = 0;
+  await bot.handleMessage(text(OWNER, `move M${m0.id} to 5 pm`));
+  const moved = await bot.getMeeting(m0.id);
+  assert.equal(moved.at.slice(0, 16), "2026-11-16T17:00");
+  assert.deepEqual(moved.responses, {});
+  assert.equal(moved.reminded, 0);
+  for (const p of [HIMANSHU, SHALU]) {
+    const last = wa.last(p);
+    assert.equal(last.kind, "buttons");
+    assert.match(last.body, /Meeting moved/);
+    assert.match(last.body, /was 17 Nov 04:00 PM/);
+    assert.deepEqual(last.buttons.map((b) => b.title), ["✅ I'll be there", "✖️ Can't make it", "🕒 Another time"]);
+  }
+  assert.match(wa.last(OWNER).body, /moved to today 05:00 PM/);
+
+  // 4:55 PM: the reminder follows the new time, not the one it was called for.
+  clock.at(16, 16, 55);
+  await bot.runDue();
+  assert.match(wa.last(HIMANSHU).body, /Meeting in 5 minutes/);
+  assert.match(wa.last(HIMANSHU).body, /05:00 PM/);
+
+  // Called off. Everyone invited hears it, and it is gone from the schedule and the calendar.
+  clock.at(16, 16, 57);
+  await bot.handleMessage(text(OWNER, `cancel M${m0.id}`));
+  for (const p of [HIMANSHU, SHALU]) assert.match(wa.last(p).body, /Meeting cancelled/);
+  assert.match(wa.last(OWNER).body, /cancelled/);
+  assert.equal((await bot.upcomingMeetings()).length, 0);
+  assert.match(await bot.buildSchedule(), /Nothing on the clock/);
+  // A tap on its old button is answered, not acted on.
+  await bot.handleMessage(btn(SHALU, `mt:${m0.id}:yes`));
+  assert.match(wa.last(SHALU).body, /not a meeting on your list any more/);
+
+  // A number that is not a meeting, and a time she cannot read, both ask rather than guess.
+  await bot.handleMessage(text(OWNER, "cancel M99"));
+  assert.match(wa.last(OWNER).body, /no meeting M99/);
+  await bot.handleMessage(text(OWNER, "meeting with Himanshu and Shalu at 4"));
+  const m1 = (await bot.upcomingMeetings())[0];
+  await bot.handleMessage(text(OWNER, `move M${m1.id} to sometime next week`));
+  assert.match(wa.last(OWNER).body, /When shall I move/);
+  assert.equal((await bot.getMeeting(m1.id)).at.slice(0, 16), "2026-11-17T16:00", "nothing moved");
 });
