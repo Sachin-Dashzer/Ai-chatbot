@@ -3,187 +3,276 @@
 @tailwind utilities;
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Ankit Desk — design tokens.
+   Love — design tokens.
 
-   Style: achromatic-ledger (tasteskill app sheet, seed 1939230577).
-   Its one move: no colour anywhere in the chrome. The sidebar, the bars, the
-   buttons and the selected states are ink and grey. Colour is spent only where
-   it carries a fact:
+   World: THE COUNTERFOIL BOOK (impeccable direction seed:8c0a4f03dec6bb45).
+   Love is a telegraph office: Ankit dictates, the office sets it exactly,
+   routes it to an address, delivers it and keeps the counterfoil as proof. So
+   every row on these screens is the counterfoil of a message that went out.
 
-     --negative  the one figure that answers a screen's question when the
-                 answer is bad, and an age that has passed a week.
-     --warning   a task due at a set clock time, and nothing else.
-     --hue       the live marks: "now" on the bot's day, today on the calendar.
-     --positive  closed work.
+   Shell: framed sheet (tasteskill app sheet, seed 360299993). Its move is one
+   tinted L-frame holding the sidebar and the top bar with no rule between
+   them, and the work on a white sheet inset 8px with a 1px edge and no shadow.
+   The sheet's own face list offers "the frame tinted from the product's
+   colour, the sheet stays white" — which is this world exactly: the board of
+   the counterfoil book is the frame, the form paper is the sheet.
 
-   The budget is under 1% of the screen. The previous build spent its colour on
-   a brand band and nav badges and left every number grey; this inverts that.
+   Two hues, each with one job, and nothing else is ever coloured:
 
-   Ground is a low-chroma blue-grey (#f2f4f7) — the sheet's "ledger" face. The
-   work sits on white cards one tone step above it, so depth is a tone step and
-   a hairline, never a shadow.
+     --furniture  the office's own green. Printed form furniture: the labels a
+                  form is printed with, the person's name on a record, a
+                  delivered stamp, and the one data track. It is also
+                  --positive, because in this world "the office did it" and
+                  "it is done" are the same fact.
+     --stamp      the datestamp's vermilion. The state that needs Ankit: held,
+                  overdue, stuck on him, a due clock time. It is --negative.
+                  Never under 11px, where it would fall under 4.5:1.
+
+   Every grey that carries words is tinted from the green rather than left
+   neutral: on a coloured ground a neutral grey reads as dirt.
+
+   Measured: --muted 6.6:1 on the board and 8.4:1 on paper; --faint 4.9:1 on
+   the board, 5.9:1 on paper and 4.7:1 on an --active row; --furniture 5.4:1
+   and 6.9:1; --stamp 4.6:1 and 5.9:1.
    ────────────────────────────────────────────────────────────────────────── */
 :root {
   color-scheme: light;
 
-  --ground: #f2f4f7;        /* the canvas and the sidebar: one plane */
-  --surface: #ffffff;       /* the work */
-  --raised: #e9ecf2;        /* a well, a nav hover, a table header band */
-  --active: #dfe3ea;        /* the nav pill and the selected row — neutral */
-  --border: #e4e8ee;        /* card and table edges, on white */
-  --rule: #eef0f4;          /* row rules, one step lighter */
-  --control: #c8cedb;       /* input and button borders, one step darker */
+  --board: #dce3dc;         /* the frame: the counterfoil book's own board */
+  --ground: #dce3dc;        /* alias, for anything still asking for a ground */
+  --surface: #ffffff;       /* form paper: every record sits on it */
+  --raised: #edf1ec;        /* a well inside the paper */
+  --active: #d5ded4;        /* the selected record and the nav pill */
+  --border: #e4e9e3;        /* a panel edge on paper: 1.15:1, a whisper */
+  --sheet-edge: #c6d1c5;    /* the sheet's own edge, which must read on the board */
+  --rule: #e9eee8;          /* row rules on paper, one step off white */
+  --control: #aebcac;       /* input and button borders, one step darker */
 
-  /* Three tiers, each ≥4.5:1 on every surface it can sit on — white, the
-     ground, --raised and the --active fill of a selected row — and 1.8× apart
-     in luminance, so they read as three greys rather than one used three ways.
-     The floor is set by the hardest case: meta text inside a selected row. */
-  --text: #0a0a0a;          /* 15.4:1 at worst */
-  --muted: #444954;         /* 7.0:1  — sentences about the data */
-  --faint: #5b6170;         /* 4.8:1  — meta, stamps, captions */
+  --text: #141310;          /* ink */
+  --muted: #41514a;         /* sentences about the data */
+  --faint: #4f5e56;         /* meta, times, counts — 5.1:1 board, 4.8:1 active, 6.7:1 paper */
 
-  --primary: #141414;       /* the one filled button: near-black, white label */
+  --furniture: #1d5b45;     /* printed green: labels, names, the one track */
+  --stamp: #a82a22;         /* the datestamp: the state that needs him */
+  --carbon: #f3e3e0;        /* the carbon duplicate: words quoted verbatim */
+  --carbon-rule: #e4cdc9;
+
+  --primary: #141310;       /* the one filled button: ink, paper label */
   --primary-ink: #ffffff;
-  --hue: #1d5fbf;           /* 5.5:1 — live data marks only */
-  --hue-soft: #e8eefa;
+  --hue: #1d5b45;           /* the data hue is the office's own green */
+  --hue-soft: #e3ece7;
 
-  --positive: #2e7d32;
-  --negative: #c4242a;
-  --warning: #92400e;
+  --positive: #1d5b45;
+  --negative: #a82a22;
+  --warning: #a82a22;       /* no third hue: a due time is a stamp matter */
 
-  --pill-neutral-bg: #e9ecf2; --pill-neutral-ink: #36393f;
-  --pill-positive-bg: #dcfae5; --pill-positive-ink: #04250e;
-  --pill-negative-bg: #ffedea; --pill-negative-ink: #831c1e;
-  --pill-warning-bg: #fffbeb; --pill-warning-ink: #92400e;
+  --pill-neutral-bg: #edf1ec; --pill-neutral-ink: #2f3b35;
+  --pill-positive-bg: #e3ece7; --pill-positive-ink: #15402f;
+  --pill-negative-bg: #f7e4e2; --pill-negative-ink: #7d1f19;
+  --pill-warning-bg: #f7e4e2; --pill-warning-ink: #7d1f19;
 
-  /* The transcript. A record of WhatsApp, not a copy of it: the sides are told
-     apart by alignment and one tone step, the way the rest of the app tells
-     surfaces apart. No green, no wallpaper. */
-  --chat-ground: #eceff4;
+  /* The transcript is the counterfoil of a conversation: what Love sent sits
+     on paper, what came back sits on the carbon duplicate. Alignment and one
+     tone step tell the sides apart, as everywhere else in the app. */
+  --chat-ground: #d5ded4;
   --chat-in-bg: #ffffff;
-  --chat-out-bg: #dfe3ea;
-  --chat-meta: #5a6069;     /* 4.9:1 on both bubbles */
+  --chat-out-bg: #f3e3e0;
+  --chat-meta: #55635b;     /* 4.8:1 on both */
 
-  --radius-card: 8px;
-  --radius-control: 6px;
-  --radius-chip: 4px;
+  /* A form has square corners. The dealt sheet's 16px is taken down to 8 for
+     the sheet and 4 inside it: the letterpress register cannot carry a soft
+     corner, and 4-8px is the study's own tight band. Recorded as a redraw. */
+  --radius-sheet: 8px;
+  --radius-card: 4px;
+  --radius-control: 4px;
+  --radius-chip: 2px;
 
-  --sidebar: 256px;
-  --topbar: 48px;           /* phone only; there is no desktop top bar */
-  --gap: 16px;              /* between cards, horizontally and vertically */
-  --section: 32px;          /* between bands of the page */
-  --pad: 28px;              /* canvas gutter */
-  --card-pad: 20px;
+  --sidebar: 236px;         /* the sheet's 220-263 band */
+  --topbar: 48px;
+  --sheet-inset: 8px;
+  --gap: 16px;
+  --section: 32px;
+  --pad: 24px;              /* the sheet's own content padding */
+  --card-pad: 16px;
   --nav-pitch: 34px;
   --nav-row: 32px;
-  --control-height: 32px;   /* filters and toolbar */
-  --field-height: 40px;     /* form inputs */
+  --control-height: 32px;
+  --field-height: 40px;
   --button-height: 36px;
   --row-height: 44px;
 
-  /* Motion. This screen is opened many times a day, so nothing performs an
-     entrance: motion is feedback and nothing else. Entering and exiting use
-     ease-out; movement on screen uses ease-in-out; nothing runs past 240ms. */
+  /* Motion. One authored moment: the stamp strikes. Everything else is
+     feedback, and nothing performs an entrance on a screen opened twenty
+     times a day. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* The app is light by default — <html data-theme="light"> in app/layout.js pins
-   it. Swap that to "dark", or drop the attribute to follow the device.
-   The dark palette is true neutral: no navy, no slate (0 of 6 studied dark
-   screens use either), and elevation is lightness alone. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) { color-scheme: dark; }
 }
 
+/* Night. The board darkens to the green-black of the book's cover and the
+   paper to a dark card; the two hues lift until they still carry 4.5:1. No
+   navy, no slate, and elevation is lightness alone. */
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --ground: #0a0a0a;
-  --surface: #141414;
-  --raised: #1f1f1f;
-  --active: #262626;
-  --border: #242424;
-  --rule: #1c1c1c;
-  --control: #3d3d3d;
+  --board: #0d110f;
+  --ground: #0d110f;
+  --surface: #171c19;
+  --raised: #1f2622;
+  --active: #28312c;
+  --border: #242c27;
+  --sheet-edge: #2b332e;
+  --rule: #1e2421;
+  --control: #3e4a44;
 
-  --text: #f5f5f5;
-  --muted: #b4b4b4;
-  --faint: #949494;
+  --text: #f2f4f1;
+  --muted: #b2bdb6;
+  --faint: #93a09a;
 
-  --primary: #f5f5f5;
-  --primary-ink: #0a0a0a;
-  --hue: #7aa7e8;
-  --hue-soft: #16243a;
+  --furniture: #6fbf9c;
+  --stamp: #e8776b;
+  --carbon: #2a1f1e;
+  --carbon-rule: #3b2b29;
 
-  --positive: #3fc07a;
-  --negative: #e5566f;
-  --warning: #e9b949;
+  --primary: #f2f4f1;
+  --primary-ink: #0d110f;
+  --hue: #6fbf9c;
+  --hue-soft: #15241d;
 
-  --pill-neutral-bg: #262626; --pill-neutral-ink: #d4d4d4;
-  --pill-positive-bg: #122a1b; --pill-positive-ink: #3fc07a;
-  --pill-negative-bg: #2c1a20; --pill-negative-ink: #e5566f;
-  --pill-warning-bg: #2b2411; --pill-warning-ink: #e9b949;
+  --positive: #6fbf9c;
+  --negative: #e8776b;
+  --warning: #e8776b;
 
-  --chat-ground: #0a0a0a;
-  --chat-in-bg: #1f1f1f;
-  --chat-out-bg: #2b2b2b;
-  --chat-meta: #a3a3a3;
+  --pill-neutral-bg: #242c27; --pill-neutral-ink: #cbd5cf;
+  --pill-positive-bg: #15241d; --pill-positive-ink: #6fbf9c;
+  --pill-negative-bg: #2a1a18; --pill-negative-ink: #e8776b;
+  --pill-warning-bg: #2a1a18; --pill-warning-ink: #e8776b;
+
+  --chat-ground: #0d110f;
+  --chat-in-bg: #171c19;
+  --chat-out-bg: #2a1f1e;
+  --chat-meta: #a9b4ae;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --ground: #0a0a0a;
-    --surface: #141414;
-    --raised: #1f1f1f;
-    --active: #262626;
-    --border: #242424;
-    --rule: #1c1c1c;
-    --control: #3d3d3d;
+    --board: #0d110f;
+    --ground: #0d110f;
+    --surface: #171c19;
+    --raised: #1f2622;
+    --active: #28312c;
+    --border: #242c27;
+    --sheet-edge: #2b332e;
+    --rule: #1e2421;
+    --control: #3e4a44;
 
-    --text: #f5f5f5;
-    --muted: #b4b4b4;
-    --faint: #949494;
+    --text: #f2f4f1;
+    --muted: #b2bdb6;
+    --faint: #93a09a;
 
-    --primary: #f5f5f5;
-    --primary-ink: #0a0a0a;
-    --hue: #7aa7e8;
-    --hue-soft: #16243a;
+    --furniture: #6fbf9c;
+    --stamp: #e8776b;
+    --carbon: #2a1f1e;
+    --carbon-rule: #3b2b29;
 
-    --positive: #3fc07a;
-    --negative: #e5566f;
-    --warning: #e9b949;
+    --primary: #f2f4f1;
+    --primary-ink: #0d110f;
+    --hue: #6fbf9c;
+    --hue-soft: #15241d;
 
-    --pill-neutral-bg: #262626; --pill-neutral-ink: #d4d4d4;
-    --pill-positive-bg: #122a1b; --pill-positive-ink: #3fc07a;
-    --pill-negative-bg: #2c1a20; --pill-negative-ink: #e5566f;
-    --pill-warning-bg: #2b2411; --pill-warning-ink: #e9b949;
+    --positive: #6fbf9c;
+    --negative: #e8776b;
+    --warning: #e8776b;
 
-    --chat-ground: #0a0a0a;
-    --chat-in-bg: #1f1f1f;
-    --chat-out-bg: #2b2b2b;
-    --chat-meta: #a3a3a3;
+    --pill-neutral-bg: #242c27; --pill-neutral-ink: #cbd5cf;
+    --pill-positive-bg: #15241d; --pill-positive-ink: #6fbf9c;
+    --pill-negative-bg: #2a1a18; --pill-negative-ink: #e8776b;
+    --pill-warning-bg: #2a1a18; --pill-warning-ink: #e8776b;
+
+    --chat-ground: #0d110f;
+    --chat-in-bg: #171c19;
+    --chat-out-bg: #2a1f1e;
+    --chat-meta: #a9b4ae;
   }
 }
 
 /* ── Base ──────────────────────────────────────────────────────────────── */
 html {
-  background: var(--ground);
+  background: var(--board);
   -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  background: var(--ground);
+  background: var(--board);
   color: var(--text);
 }
 
-/* Every figure keeps its width: tables, counts, ages, the clock. */
+/* Every figure keeps its width: a form's columns depend on it. */
 .num,
 table,
 time,
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* The printed furniture of a form: the small green labels it arrives with. */
+.furniture {
+  font-family: var(--font-narrow), var(--font-sans), system-ui, sans-serif;
+  font-weight: 600;
+  color: var(--furniture);
+  letter-spacing: 0.005em;
+}
+
+/* ── The signature move: the datestamp ────────────────────────────────────
+   A stamp is struck only where the state is NEWS: held outside the window,
+   nothing moving for a week, waiting on Ankit himself. An ordinary open record
+   carries its age as plain text, because a mark on every row is the status
+   pill this world refuses, whatever shape it is cut in.
+   One ink: the vermilion of the office's stamp pad. Done work is struck
+   through and needs no second mark. Square corners, because a form has none,
+   and struck far enough off-square to read as a blow rather than a mistake. */
+.stamp {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 3px 7px;
+  border: 1.5px solid currentColor;
+  border-radius: 0;
+  color: var(--stamp);
+  font-family: var(--font-narrow), var(--font-sans), system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 1.15;
+  letter-spacing: 0.055em;
+  white-space: nowrap;
+  transform: rotate(-3.4deg);
+}
+.stamp > time,
+.stamp > .when {
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+/* The second ink was a three-colour status system wearing a stamp's clothes:
+   one pad, one ink. A closed line is struck through instead. */
+.stamp-needs { color: var(--stamp); }
+
+/* Struck through, the way a clerk closes a line. */
+.struck {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--faint);
+}
+
+/* Today is ringed in pen, not filled. */
+.ringed {
+  box-shadow: inset 0 0 0 1.5px var(--furniture);
 }
 
 /* ── Browser surfaces, themed rather than left to the browser ──────────── */
@@ -193,9 +282,9 @@ time,
 }
 
 :focus-visible {
-  outline: 2px solid var(--text);
+  outline: 2px solid var(--furniture);
   outline-offset: 2px;
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 a {
@@ -204,7 +293,7 @@ a {
 }
 
 * {
-  caret-color: var(--text);
+  caret-color: var(--furniture);
   scrollbar-color: var(--control) transparent;
   scrollbar-width: thin;
 }
@@ -218,14 +307,14 @@ a {
 }
 ::-webkit-scrollbar-thumb {
   background: var(--control);
-  border: 3px solid var(--ground);
+  border: 3px solid var(--board);
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--faint);
 }
 
-/* ── Disclosure (task remarks, the phone's nav, the command list) ──────── */
+/* ── Disclosure (a record's counterfoil, the phone's nav) ──────────────── */
 details > summary {
   list-style: none;
   cursor: pointer;
@@ -240,9 +329,7 @@ details[open] > summary > .chev {
   transform: rotate(90deg);
 }
 
-/* ── Press feedback. Every pressable thing answers the finger. ──────────
-   Exact properties, never `all`: a transition on `all` would also animate the
-   outline the focus ring draws. */
+/* ── Press feedback ─────────────────────────────────────────────────────── */
 .press {
   transition: transform 140ms var(--ease-out), background-color 120ms ease,
     border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
@@ -251,23 +338,29 @@ details[open] > summary > .chev {
   transform: scale(0.97);
 }
 
-/* A table row is 44px wide and a scale would wobble the text, so a row answers
-   the press with its fill instead. */
 .press-row {
   transition: background-color 110ms ease, box-shadow 110ms ease;
 }
 
-/* Hover belongs to a mouse. On a touch screen it fires on tap and sticks. */
 @media (hover: hover) and (pointer: fine) {
   .hover-row:hover {
     background: var(--raised);
   }
 }
 
-/* ── The phone's navigation sheet ──────────────────────────────────────────
-   A keyframe, not a transition: <details> flips display, which a transition
-   cannot interpolate. Entry only — closing is instant, as a menu should be.
-   It scales from the menu button it belongs to, not from its own centre. */
+/* The stamp strikes: two frames in 90ms, no easing curve, because a stamp
+   either has landed or has not. It is the one authored moment on the screen. */
+@keyframes stamp-strike {
+  from {
+    opacity: 0;
+    transform: rotate(-2.2deg) scale(1.22);
+  }
+}
+.stamp-strike {
+  animation: stamp-strike 90ms steps(2, end);
+}
+
+/* ── The phone's navigation sheet ──────────────────────────────────────── */
 @keyframes nav-in {
   from {
     opacity: 0;
@@ -279,8 +372,6 @@ details[open] > .navsheet {
   animation: nav-in 180ms var(--ease-drawer);
 }
 
-/* Reduced motion keeps what aids comprehension (opacity, colour) and drops
-   every movement. */
 @media (prefers-reduced-motion: reduce) {
   .press:active {
     transform: none;
@@ -289,7 +380,8 @@ details[open] > .navsheet {
   details[open] > summary > .chev {
     transition: none;
   }
-  details[open] > .navsheet {
+  details[open] > .navsheet,
+  .stamp-strike {
     animation: none;
   }
   *,

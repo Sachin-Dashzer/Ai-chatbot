@@ -13,15 +13,15 @@
 //    panel directly below, and a status chip on every row of a section whose
 //    heading already said that status.
 import TaskCard from "./TaskCard";
-import { PageHead } from "./Shell";
-import { Icon, Panel, Section, Empty, Lead, Tabs, MiniLink } from "./ui";
+import { PageHead, Band } from "./Shell";
+import { Icon, Panel, Section, Empty, Lead, Track, Tabs, MiniLink } from "./ui";
 
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
 function Rows({ cards, empty, ...rest }) {
   if (!cards.length) return <Empty>{empty}</Empty>;
   return (
-    <div className="overflow-hidden rounded-card border border-edge bg-surface px-5">
+    <div className="overflow-hidden rounded-card border border-edge bg-surface px-4 sm:px-5 lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0">
       {cards.map((c) => (
         <TaskCard key={c.id} c={c} {...rest} />
       ))}
@@ -41,7 +41,7 @@ function ClosedRail({ cards, total, className = "" }) {
       {cards.length === 0 ? (
         <Empty>Nothing closed yet this week.</Empty>
       ) : (
-        <div className="overflow-hidden rounded-card border border-edge bg-surface px-4">
+        <div className="overflow-hidden rounded-card border border-edge bg-surface lg:rounded-none lg:border-0 lg:bg-transparent px-4">
           {cards.map((c) => (
             <TaskCard key={c.id} c={c} ownerView compact />
           ))}
@@ -57,7 +57,7 @@ function LoadRail({ rows, title = "Open per person", unit = "" }) {
   const most = Math.max(1, ...rows.map((r) => r.open));
   return (
     <Section title={title} count={rows.length}>
-      <div className="overflow-hidden rounded-card border border-edge bg-surface px-4">
+      <div className="overflow-hidden rounded-card border border-edge bg-surface lg:rounded-none lg:border-0 lg:bg-transparent px-4">
         {rows.map((r) => (
           <div key={r.name} className="border-b border-rule py-2.5 last:border-0">
             <p className="flex items-baseline justify-between gap-3">
@@ -91,17 +91,19 @@ export function TeamBoard({ data }) {
 
   return (
     <>
-      <PageHead
-        title={data.title}
-        finding={`${data.stats.open} open across the team, ${data.stats.doneWeek} closed in the last 7 days.`}
-        stamp={`Updated ${data.updated}`}
-      />
+      <Band>
+        <PageHead
+          title={data.title}
+          finding={`${data.stats.open} open across the team, ${data.stats.doneWeek} closed in the last 7 days.`}
+          stamp={`Updated ${data.updated}`}
+        />
+      </Band>
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_316px]">
         <div className="min-w-0">
-          <Panel title="Behind" pad={false} className="mb-6">
+          <Panel pad={false} className="mb-6">
             <div className={`px-5 py-4 ${att ? "border-b border-edge" : ""}`}>
-              <Lead value={att}>
+              <Lead value={att} label="Behind">
                 {att
                   ? `${att === 1 ? "task is" : "tasks are"} stuck, or have gone a week without moving` +
                     (oldest >= 3 ? `. The oldest has been open ${plural(oldest, "day")}.` : ".")
@@ -174,13 +176,27 @@ function masterFinding(data) {
         ? `Nothing is waiting on you. ${plural(team, "task")} are stuck or overdue with the team.`
         : "Nothing is stuck and nothing is waiting on you.";
     }
-    return `${plural(onMe, "task")} waiting on you${
+    return `${onMe === 1 ? "task is" : "tasks are"} waiting on you${
       oldest >= 3 ? `, the oldest open ${plural(oldest, "day")}` : ""
     }. ${plural(team, "task")} stuck or overdue with the team.`;
   }
   const open = data.stats?.open || 0;
   const people = data.sections?.filter((s) => s.cards.length).length || 0;
   return `${plural(open, "task")} open across ${people} ${people === 1 ? "person" : "people"}.`;
+}
+
+function DayTrack({ day }) {
+  if (!day || !day.total) return null;
+  return (
+    <section className="mt-8">
+      <p className="furniture mb-2 text-meta">Your day</p>
+      <Track
+        ratio={day.done / day.total}
+        left={`${day.done} of ${day.total} closed`}
+        right={day.done === day.total ? "all clear" : `${day.total - day.done} still open`}
+      />
+    </section>
+  );
 }
 
 export function MasterBoard({ data, boardKey }) {
@@ -195,9 +211,14 @@ export function MasterBoard({ data, boardKey }) {
 
   return (
     <>
+      <Band>
       <PageHead
         title={data.title}
-        finding={masterFinding(data)}
+        finding={
+          (data.tab === "attention" && data.view === "attention") || data.tab === "mine"
+            ? null
+            : masterFinding(data)
+        }
         stamp={`Updated ${data.updated}`}
         actions={
           <MiniLink href={`/board/${boardKey}/export`}>
@@ -221,6 +242,20 @@ export function MasterBoard({ data, boardKey }) {
           }))}
         />
       )}
+
+      {/* The screen answers one question, and its answer is the largest
+          figure on the page: everything else here is smaller than this. */}
+      {data.tab === "attention" && data.view === "attention" && (
+        <Lead value={data.sections?.[0]?.cards.length || 0} label="Waiting on you">
+          {masterFinding(data)}
+        </Lead>
+      )}
+      {data.tab === "mine" && (
+        <Lead value={data.sections?.[0]?.cards.length || 0} label="Open on you" tone="neutral">
+          {masterFinding(data)}
+        </Lead>
+      )}
+      </Band>
 
       <div
         className={
@@ -265,7 +300,7 @@ export function MasterBoard({ data, boardKey }) {
                 {rail.cards.length === 0 ? (
                   <Empty>{rail.empty}</Empty>
                 ) : (
-                  <div className="overflow-hidden rounded-card border border-edge bg-surface px-4">
+                  <div className="overflow-hidden rounded-card border border-edge bg-surface px-4 lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0">
                     {rail.cards.map((c) => (
                       <TaskCard key={c.id} c={c} ownerView compact hideOwner={data.tab === "mine"} />
                     ))}
@@ -280,6 +315,7 @@ export function MasterBoard({ data, boardKey }) {
             ) : (
               <ClosedRail cards={data.recent || []} total={data.recentTotal} />
             )}
+            <DayTrack day={data.day} />
           </div>
         )}
       </div>

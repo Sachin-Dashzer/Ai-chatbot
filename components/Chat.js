@@ -63,7 +63,7 @@ function ChatList({ data, boardKey }) {
 
   return (
     <>
-      <div className="flex h-14 flex-none items-center justify-between gap-3 border-b border-edge px-4">
+      <div className="flex h-14 flex-none items-center justify-between gap-3 border-b border-sheet-edge bg-board px-4">
         <H className="text-section font-semibold text-ink">Chats</H>
         <p className="text-small text-faint">
           {data.checkinSent ? `${waiting} still to reply` : `list goes out at ${data.listTime}`}
@@ -111,7 +111,7 @@ function ChatList({ data, boardKey }) {
                 <span className="min-w-0 flex-1 truncate text-meta text-muted">
                   {c.last ? (
                     <>
-                      {c.last.out && <span className="text-faint">You: </span>}
+                      {c.last.out && <span className="furniture">Sent · </span>}
                       {c.last.voice && (
                         <span
                           className="mr-1 inline-flex translate-y-[2px] text-faint"
@@ -128,10 +128,11 @@ function ChatList({ data, boardKey }) {
                 </span>
                 {c.state === "waiting" && (
                   <span
-                    aria-label="has not replied to today's list"
                     title="Has not replied to today's list"
-                    className="h-1.5 w-1.5 flex-none rounded-full bg-[var(--warning)]"
-                  />
+                    className="flex-none whitespace-nowrap border border-stamp px-1 font-narrow text-small font-semibold text-stamp"
+                  >
+                    No reply
+                  </span>
                 )}
               </span>
             </span>
@@ -197,7 +198,7 @@ function Thread({ data, boardKey }) {
 
   return (
     <>
-      <div className="flex h-14 flex-none items-center gap-3 border-b border-edge px-3 sm:px-4">
+      <div className="flex h-14 flex-none items-center gap-3 border-b border-sheet-edge bg-board px-3 sm:px-4">
         <a
           href={`/board/${boardKey}?tab=messages`}
           aria-label="Back to all chats"

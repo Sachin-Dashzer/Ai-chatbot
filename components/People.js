@@ -10,15 +10,15 @@
 // The forms follow the settings pattern: a label column carrying the section's
 // name and what it does, beside the panel that does it. The destructive action
 // is last, in a section of its own, with its consequence in words.
-import { Panel, Empty, Notice, Button } from "./ui";
-import { PageHead } from "./Shell";
+import { Panel, Empty, Notice, Button, Stamp } from "./ui";
+import { PageHead, Band } from "./Shell";
 
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
 // A phone number is an identifier, so it is set in the mono face, like a task
 // id — not right-aligned, because it is not a quantity.
 const Number_ = ({ children }) => (
-  <span className="font-mono text-meta tabular text-muted">{children}</span>
+  <span className="font-narrow text-meta tabular text-muted">{children}</span>
 );
 
 function Field({ label, name, defaultValue = "", placeholder, hint, required = false, wide = false }) {
@@ -54,7 +54,7 @@ function FormSection({ title, description, children, className = "" }) {
         <h2 className="text-section font-semibold text-ink">{title}</h2>
         <p className="mt-1.5 max-w-[46ch] text-meta leading-snug text-muted">{description}</p>
       </div>
-      <div className="min-w-0 rounded-card border border-edge bg-surface p-5">{children}</div>
+      <div className="min-w-0 rounded-card border border-edge bg-surface p-5 lg:border-0 lg:bg-raised">{children}</div>
     </section>
   );
 }
@@ -69,7 +69,7 @@ function Row({ p, boardKey, open }) {
       className={`press-row border-t border-rule ${open ? "bg-active" : "hover-row"}`}
       aria-current={open ? "true" : undefined}
     >
-      <td className="py-3 pr-4 align-top">
+      <td className="sticky left-0 z-10 bg-surface py-3 pr-4 align-top">
         <a href={href} className="block truncate text-body font-medium text-ink hover:underline">
           {p.name}
         </a>
@@ -86,7 +86,11 @@ function Row({ p, boardKey, open }) {
         {p.does ? (
           <span className="line-clamp-2 text-meta text-muted">{p.does}</span>
         ) : (
-          <span className="text-meta text-faint">— not set</span>
+          <span
+            title="Nothing listed, so a task with no name on it is never guessed onto them"
+            className="mt-2 block h-px w-24 bg-control"
+            aria-label="not set"
+          />
         )}
       </td>
       <td className="whitespace-nowrap py-3 pr-4 align-top text-meta text-muted">
@@ -97,13 +101,12 @@ function Row({ p, boardKey, open }) {
         {p.lastIn ? (
           <span className="text-meta tabular text-muted">{p.lastIn}</span>
         ) : (
-          <span
+          <Stamp
+            tone="needs"
+            state="No window"
+            when="never wrote"
             title="They have never messaged the bot, so WhatsApp allows only the approved template until they reply"
-            style={{ background: "var(--pill-warning-bg)", color: "var(--pill-warning-ink)" }}
-            className="inline-flex h-5 flex-none items-center whitespace-nowrap rounded-chip px-1.5 text-small font-medium"
-          >
-            never messaged
-          </span>
+          />
         )}
       </td>
       <td className="py-3 pr-4 text-right align-top text-body tabular">
@@ -138,7 +141,9 @@ export default function People({ data, boardKey, ok, err }) {
 
   return (
     <>
-      <PageHead title="People" finding={finding} stamp={`Updated ${data.updated}`} />
+      <Band>
+        <PageHead title="People" finding={finding} stamp={`Updated ${data.updated}`} />
+      </Band>
 
       {/* The answer to whatever was just submitted, in the words the bot would
           have used. */}
@@ -172,7 +177,7 @@ export default function People({ data, boardKey, ok, err }) {
             <table className="w-full min-w-[46rem] text-body">
               <thead>
                 <tr className="text-small text-faint">
-                  <th scope="col" className="w-[18%] py-2.5 pr-4 text-left font-normal">Name</th>
+                  <th scope="col" className="sticky left-0 z-10 bg-surface w-[18%] py-2.5 pr-4 text-left font-normal">Name</th>
                   <th scope="col" className="whitespace-nowrap py-2.5 pr-4 text-left font-normal">
                     WhatsApp number
                   </th>
@@ -214,7 +219,7 @@ export default function People({ data, boardKey, ok, err }) {
               </p>
               <p className="mt-2 text-meta leading-snug text-faint">
                 {/* taste-skill-ignore: a real filename */}
-                Set in <span className="font-mono">people.yaml</span> and not changeable from here
+                Set in <span className="bg-carbon px-1 font-narrow">people.yaml</span> and not changeable from here
                 or from WhatsApp: a wrong number in this one field would lock you out of your own
                 bot.
               </p>
@@ -231,7 +236,7 @@ export default function People({ data, boardKey, ok, err }) {
               ].map(([cmd, what]) => (
                 <div key={cmd} className="border-b border-rule px-5 py-2.5 last:border-0">
                   {/* taste-skill-ignore: literal WhatsApp commands */}
-                  <dt className="font-mono text-meta text-ink">{cmd}</dt>
+                  <dt className="bg-carbon px-1 font-narrow text-meta text-ink">{cmd}</dt>
                   <dd className="mt-0.5 text-small text-faint">{what}</dd>
                 </div>
               ))}

@@ -1,0 +1,35 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          ".impeccable/mocks/decision/canon.html"
+        ],
+        "createdAt": "2026-11-19T17:45:35.690Z",
+        "reason": "model: this card documents the category default on purpose - Inter on #F9FAFB is what it depicts"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-11-19T17:45:42.786Z",
+        "reason": "model: the datestamp is this direction's signature mark; a rubber stamp's ink box is tight by nature and an 8px inset turns it into a button. Scoped to this decision fixture only - the build's real containers stay held to 12-16px"
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-catalog.html"
+        ],
+        "createdAt": "2026-11-19T17:45:42.964Z",
+        "reason": "model: newsprint is the dealt catalog world's own declared material; repainting a challenger would misrepresent the option being chosen"
+      }
+    ]
+  }
+}

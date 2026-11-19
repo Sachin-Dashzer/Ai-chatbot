@@ -34,7 +34,7 @@ export default async function BoardPage({ params, searchParams }) {
             <p className="mt-3 border-t border-rule pt-3 text-body text-muted">
               Ask Ankit for the current one: he sends{" "}
               {/* taste-skill-ignore: a literal WhatsApp command */}
-              <span className="font-mono text-ink">boards</span> to the bot and gets every link
+              <span className="bg-carbon px-1 font-narrow text-ink">boards</span> to the bot and gets every link
               back.
             </p>
           </div>

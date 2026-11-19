@@ -6,7 +6,7 @@
 import { getBot } from "../../lib/runtime.js";
 import { MASTER } from "../../lib/boards.js";
 import { MONTHS, weekdayOf, fmtDayMon, fmtTime, workDaySet } from "../../lib/time.js";
-import Shell, { PageHead } from "../../components/Shell";
+import Shell, { PageHead, Band } from "../../components/Shell";
 import TaskCard from "../../components/TaskCard";
 import { Section, Panel, Empty, Status } from "../../components/ui";
 
@@ -17,6 +17,21 @@ const WEEK = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 // Three letters, not one: "M T W T F S S" has two T's and two S's.
 const HEAD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const pad = (n) => String(n).padStart(2, "0");
+// A day list shows a few rows and states its total; it never paginates, and it
+// cannot run three screens deep beside a month grid that ends in one.
+const DAY_ROWS = 6;
+const DayRows = ({ cards }) => (
+  <div className="rounded-card border border-edge lg:rounded-none lg:border-0 px-4 sm:px-5">
+    {cards.slice(0, DAY_ROWS).map((c) => (
+      <TaskCard key={c.id} c={c} ownerView compact />
+    ))}
+    {cards.length > DAY_ROWS && (
+      <p className="border-t border-rule py-2 text-small text-faint">
+        {cards.length - DAY_ROWS} more on this day.
+      </p>
+    )}
+  </div>
+);
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const monthOf = (ymd) => ymd.slice(0, 7);
 const monthLabel = (ym) => `${MONTHS[+ym.slice(5, 7) - 1]} ${ym.slice(0, 4)}`;
@@ -67,7 +82,7 @@ const Closed = ({ n }) => (
 // rather than a status tint: it is a fact about the day, not work in a state.
 const Meet = ({ n }) => (
   <span
-    style={{ background: "var(--hue-soft)", color: "var(--hue)" }}
+    style={{ background: "var(--hue-soft)", color: "var(--furniture)" }}
     className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-chip px-1 text-small font-medium tabular"
   >
     {n}
@@ -157,6 +172,7 @@ export default async function CalendarPage({ searchParams }) {
 
   return (
     <Shell scope="Master board" sections={nav} title="Calendar">
+      <Band>
       <PageHead
         title="Calendar"
         finding={`${plural(monthAssigned, "task")} assigned in ${monthLabel(ym)}, ${monthClosed} closed${scoped}.`}
@@ -164,7 +180,7 @@ export default async function CalendarPage({ searchParams }) {
       />
 
       {/* Whose tasks. A link per person, so the screen stays server-rendered. */}
-      <div className="mb-5 flex flex-wrap gap-1.5">
+      <div className="mb-5 flex gap-1.5 overflow-x-auto pb-1 lg:flex-wrap">
         {[["", "Everyone"], ...names.map((n) => [n, n === owner ? "You" : n])].map(([v, label]) => (
           <a
             key={v || "all"}
@@ -183,6 +199,7 @@ export default async function CalendarPage({ searchParams }) {
           </a>
         ))}
       </div>
+      </Band>
 
       {/* items-start: the month keeps its own height. The previous build let
           it stretch to the day column beside it and held 2,508px of blank. */}
@@ -237,7 +254,7 @@ export default async function CalendarPage({ searchParams }) {
                     picked
                       ? "bg-active font-medium"
                       : off
-                        ? "bg-raised/60 hover-row"
+                        ? "bg-raised hover-row"
                         : "hover-row"
                   }`}
                 >
@@ -245,7 +262,7 @@ export default async function CalendarPage({ searchParams }) {
                     <span
                       className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-small tabular ${
                         isToday
-                          ? "bg-[var(--hue)] font-semibold text-white"
+                          ? "ringed font-semibold text-furniture"
                           : off
                             ? "text-faint"
                             : "text-ink"
@@ -292,7 +309,7 @@ export default async function CalendarPage({ searchParams }) {
         <div className="grid min-w-0 content-start gap-6">
           {day.meetings.length > 0 && (
             <Section title="Meetings" count={day.meetings.length}>
-              <div className="overflow-hidden rounded-card border border-edge bg-surface px-4 sm:px-5">
+              <div className="overflow-hidden rounded-card border border-edge bg-surface lg:rounded-none lg:border-0 lg:bg-transparent px-4 sm:px-5">
                 {day.meetings.map((m) => {
                   const r = m.responses || {};
                   const answered = m.with.filter((n) => r[n]);
@@ -301,7 +318,7 @@ export default async function CalendarPage({ searchParams }) {
                       <p className="flex items-baseline justify-between gap-3">
                         <span className="min-w-0 text-body text-ink">
                           {/* taste-skill-ignore: a meeting id */}
-                          <span className="font-mono text-meta text-faint">M{m.id}</span>{" "}
+                          <span className="font-narrow tabular text-meta text-faint">M{m.id}</span>{" "}
                           {m.title || "Meeting"}
                         </span>
                         <span className="flex-none text-meta tabular text-ink">{fmtTime(m.at)}</span>
@@ -323,7 +340,7 @@ export default async function CalendarPage({ searchParams }) {
 
           {timed.length > 0 && (
             <Section title="Due at a set time" count={timed.length}>
-              <div className="rounded-card border border-edge px-4 sm:px-5">
+              <div className="rounded-card border border-edge lg:rounded-none lg:border-0 px-4 sm:px-5">
                 {timed.map((c) => <TaskCard key={c.id} c={c} ownerView compact />)}
               </div>
             </Section>
@@ -333,17 +350,13 @@ export default async function CalendarPage({ searchParams }) {
             {assigned.length === 0 ? (
               <Empty>Nothing was assigned on {dayLabel(sel)}.</Empty>
             ) : (
-              <div className="rounded-card border border-edge px-4 sm:px-5">
-                {assigned.map((c) => <TaskCard key={c.id} c={c} ownerView compact />)}
-              </div>
+              <DayRows cards={assigned} />
             )}
           </Section>
 
           {closed.length > 0 && (
             <Section title="Closed" count={closed.length}>
-              <div className="rounded-card border border-edge px-4 sm:px-5">
-                {closed.map((c) => <TaskCard key={c.id} c={c} ownerView compact />)}
-              </div>
+              <DayRows cards={closed} />
             </Section>
           )}
 
@@ -356,13 +369,8 @@ export default async function CalendarPage({ searchParams }) {
               {ahead.length === 0 ? (
                 <Empty>Nothing would be left open.</Empty>
               ) : (
-                <div className="rounded-card border border-edge px-4 sm:px-5">
-                  {ahead.slice(0, 25).map((c) => <TaskCard key={c.id} c={c} ownerView compact />)}
-                  {ahead.length > 25 && (
-                    <p className="border-t border-rule py-2 text-small text-faint">{ahead.length - 25} more.</p>
-                  )}
-                </div>
-              )}
+                <DayRows cards={ahead} />
+                )}
             </Section>
           )}
         </div>

@@ -7,15 +7,18 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-sans)", "IBM Plex Sans", "system-ui", "sans-serif"],
-        mono: ["var(--font-mono)", "IBM Plex Mono", "ui-monospace", "monospace"],
+        sans: ["var(--font-sans)", "Archivo", "system-ui", "sans-serif"],
+        // One job: the printed furniture of a form.
+        narrow: ["var(--font-narrow)", "Archivo Narrow", "var(--font-sans)", "sans-serif"],
       },
       colors: {
+        board: "var(--board)",
         ground: "var(--ground)",
         surface: "var(--surface)",
         raised: "var(--raised)",
         active: "var(--active)",
         edge: "var(--border)",
+        "sheet-edge": "var(--sheet-edge)",
         rule: "var(--rule)",
         control: "var(--control)",
         ink: "var(--text)",
@@ -23,6 +26,10 @@ export default {
         faint: "var(--faint)",
         primary: "var(--primary)",
         "primary-ink": "var(--primary-ink)",
+        furniture: "var(--furniture)",
+        stamp: "var(--stamp)",
+        carbon: "var(--carbon)",
+        "carbon-rule": "var(--carbon-rule)",
         hue: "var(--hue)",
         "hue-soft": "var(--hue-soft)",
         positive: "var(--positive)",
@@ -31,6 +38,7 @@ export default {
         "chat-ground": "var(--chat-ground)",
       },
       borderRadius: {
+        sheet: "var(--radius-sheet)",
         card: "var(--radius-card)",
         control: "var(--radius-control)",
         chip: "var(--radius-chip)",
@@ -38,7 +46,9 @@ export default {
       // Six sizes. The study's cleanest scales are 12/14/18/24 and 12/14/16/24;
       // this adds one meta step and one figure step and stops there.
       fontSize: {
-        kpi: ["30px", { lineHeight: "34px", letterSpacing: "-0.022em" }],
+        // The one figure that answers the screen, and a size for its siblings.
+        kpi: ["36px", { lineHeight: "38px", letterSpacing: "-0.026em" }],
+        fig: ["20px", { lineHeight: "24px", letterSpacing: "-0.012em" }],
         title: ["24px", { lineHeight: "30px", letterSpacing: "-0.016em" }],
         section: ["16px", { lineHeight: "22px", letterSpacing: "-0.004em" }],
         body: ["14px", { lineHeight: "20px" }],
@@ -46,6 +56,7 @@ export default {
         small: ["12px", { lineHeight: "16px" }],
       },
       spacing: {
+        sheet: "var(--sheet-inset)",
         sidebar: "var(--sidebar)",
         topbar: "var(--topbar)",
         gutter: "var(--pad)",

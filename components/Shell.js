@@ -1,14 +1,16 @@
-// The frame: an open plane. One labelled sidebar sits on the page ground with a
-// single hairline between it and the canvas, and there is no desktop top bar —
-// the previous build spent 48px on a saturated band that held a wordmark and a
-// page name the h1 repeated 50px below it.
+// The frame: a tinted L holding the sidebar and the top bar with no rule
+// between them, and the work on a white sheet inset 8px from the window's
+// right and bottom edges, with a 1px edge and no shadow (tasteskill app sheet
+// `framed-sheet`, seed 360299993).
 //
-// Nothing in this chrome carries colour. Where you are is a neutral grey pill;
-// a count is a plain tabular figure, not a filled badge. Every drop of colour
-// in the product is spent inside the work, on a fact.
+// In this world that is the counterfoil book itself: the board of the book is
+// the frame, and the form paper is the sheet lying on it. The frame is the one
+// place colour owns a whole region; inside the sheet, only two hues appear and
+// each carries a fact.
 //
-// On a phone the sidebar folds into a 48px bar holding the screen's name and a
-// menu button, on the same ground.
+// Phone first — Ankit reads this standing up, one-handed. There the frame
+// disappears: the sheet becomes the screen under a 48px bar on the board tint
+// holding the menu, the product's name and at most one action.
 import { Icon, Mark } from "./ui";
 
 function NavRow({ item }) {
@@ -17,22 +19,21 @@ function NavRow({ item }) {
     <a
       href={item.href}
       aria-current={item.active ? "page" : undefined}
-      className={`press group flex h-8 items-center gap-2.5 rounded-control px-2.5 text-body ${
+      className={`press group flex min-h-11 items-center gap-2.5 rounded-control px-2.5 text-body lg:min-h-0 lg:h-8 ${
         item.active
           ? "bg-active font-medium text-ink"
           : "text-muted hover:bg-raised hover:text-ink"
       }`}
     >
       {Glyph ? (
-        <Glyph className={`flex-none ${item.active ? "text-ink" : "text-faint"}`} />
+        <Glyph className={`flex-none ${item.active ? "text-furniture" : "text-faint"}`} />
       ) : (
         <span className="w-4 flex-none" />
       )}
       <span className="min-w-0 flex-1 truncate">{item.label}</span>
       {item.count > 0 && (
-        // A count only ever sits on a queue that needs doing, and its noun is
-        // in the label beside it. A figure, not a badge: the colour budget is
-        // for the data, and a filled disc here would be chrome.
+        // A count sits only on a queue that needs doing, and its noun is in the
+        // label beside it. A figure, not a badge.
         <span
           title={item.countTitle}
           className={`flex-none tabular text-meta ${item.active ? "text-ink" : "text-faint"}`}
@@ -49,9 +50,7 @@ function NavBody({ sections, className = "" }) {
     <nav className={`space-y-6 ${className}`}>
       {sections.map((g, gi) => (
         <div key={g.label || gi}>
-          {g.label && (
-            <p className="mb-2 px-2.5 text-small text-faint">{g.label}</p>
-          )}
+          {g.label && <p className="furniture mb-2 px-2.5 text-small">{g.label}</p>}
           <div className="space-y-0.5">
             {g.items.map((it) => (
               <NavRow key={it.href + it.label} item={it} />
@@ -63,16 +62,16 @@ function NavBody({ sections, className = "" }) {
   );
 }
 
-// The product names itself at the top of the sidebar, with the scope under it.
-// A screen whose product cannot be named from a screenshot reads as a template.
-function Brand({ brand, scope }) {
+// The product names itself, with the scope under it. The mark is the office's
+// own: a struck ring with the initial inside it, drawn in ui.js.
+function Brand({ brand, scope, className = "" }) {
   return (
     <a
       href="/"
-      className="press mb-7 flex items-center gap-2.5 rounded-control px-2.5 py-1.5 hover:bg-raised"
+      className={`press flex items-center gap-2.5 rounded-control px-2.5 py-1.5 hover:bg-raised ${className}`}
     >
-      <span className="flex-none text-ink">
-        <Mark size={20} />
+      <span className="flex-none text-stamp">
+        <Mark size={22} />
       </span>
       <span className="min-w-0">
         <span className="block truncate text-body font-semibold leading-tight text-ink">
@@ -89,7 +88,7 @@ function Brand({ brand, scope }) {
 }
 
 export default function Shell({
-  brand = "Ankit Desk",
+  brand = "Love",
   scope,
   sections = [],
   title,
@@ -101,46 +100,48 @@ export default function Shell({
   const hasNav = sections.length > 0;
 
   return (
-    // A flush screen is a fixed-height column at every width, so its panes do
-    // their own scrolling. Without the flex chain below, the content simply
-    // overflows the clipped page and cannot be reached.
-    <div className={`flex flex-col bg-ground ${flush ? "h-dvh overflow-hidden" : "min-h-dvh"}`}>
-      {/* The phone's bar. It exists only below lg, where the sidebar cannot. */}
-      <header className="sticky top-0 z-20 flex h-topbar flex-none items-center gap-2 border-b border-edge bg-ground px-3 lg:hidden">
-        {hasNav ? (
-          <details className="relative flex-none">
+    <div className={`flex flex-col bg-board ${flush ? "h-dvh overflow-hidden" : "min-h-dvh"}`}>
+      {/* The phone's bar, on the board tint. Below lg only, where the
+          sidebar cannot exist. */}
+      <header className="sticky top-0 z-20 flex h-topbar flex-none items-center gap-2 bg-board px-3 lg:hidden">
+        <span className="flex-none text-stamp">
+          <Mark size={22} />
+        </span>
+        <p className="flex-none text-body font-semibold text-ink">{brand}</p>
+        {title && (
+          <>
+            <span aria-hidden className="h-3.5 w-px flex-none bg-control" />
+            <p className="min-w-0 flex-1 truncate text-meta text-muted">{title}</p>
+          </>
+        )}
+        {action}
+        {hasNav && (
+          <details className="relative ml-auto flex-none">
             <summary
               aria-label="Open navigation"
-              className="press flex h-8 w-8 items-center justify-center rounded-control text-muted hover:bg-raised hover:text-ink"
+              className="press flex h-11 w-11 items-center justify-center rounded-control text-muted hover:bg-raised hover:text-ink"
             >
               <Icon.menu />
             </summary>
             <div
-              className="navsheet absolute left-0 top-10 z-30 flex max-h-[80dvh] w-[17rem] flex-col overflow-y-auto rounded-card border border-edge bg-surface p-4 shadow-[0_12px_32px_rgba(10,10,10,0.14)]" /* taste-skill-ignore: a real overlay menu, which floats above the page */
+              className="navsheet absolute right-0 top-12 z-30 flex max-h-[80dvh] w-[17rem] flex-col gap-5 overflow-y-auto rounded-card border border-edge bg-surface p-4 shadow-[0_12px_32px_rgba(20,19,16,0.16)]" /* taste-skill-ignore: a real overlay menu, which floats above the page */
             >
-              <Brand brand={brand} scope={scope} />
+              <Brand brand={brand} scope={scope} className="-mx-1" />
               <NavBody sections={sections} />
             </div>
           </details>
-        ) : (
-          <span className="flex-none text-ink">
-            <Mark size={18} />
-          </span>
         )}
-
-        <p className="min-w-0 flex-1 truncate text-body font-semibold text-ink">
-          {title || brand}
-        </p>
-        {action}
       </header>
 
-      <div className="flex min-h-0 min-w-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 lg:gap-0">
         {hasNav && (
+          // The sidebar is part of the frame: the same board tint, no rule
+          // between it and the bar above, nothing dark or saturated.
           <aside
-            className="sticky hidden flex-none flex-col overflow-y-auto border-r border-edge bg-ground px-4 py-5 lg:flex"
+            className="sticky hidden flex-none flex-col overflow-y-auto bg-board px-4 py-4 lg:flex"
             style={{ width: "var(--sidebar)", top: 0, height: "100dvh" }}
           >
-            <Brand brand={brand} scope={scope} />
+            <Brand brand={brand} scope={scope} className="mb-6" />
             <NavBody sections={sections} className="flex-1" />
             {foot && (
               <div className="mt-6 border-t border-edge pt-3 text-small leading-snug text-faint">
@@ -150,29 +151,17 @@ export default function Shell({
           </aside>
         )}
 
-        {/* `flush` hands the whole area to the screen (the transcript), which
-            lays out its own panes and scrolls them itself. */}
+        {/* The sheet. Inset 8px from the window's right and bottom on desktop,
+            a 1px edge, no shadow; on a phone it is simply the screen. */}
         <main
-          className={`min-w-0 flex-1 ${
-            flush
-              ? "flex min-h-0 flex-col bg-surface"
-              : "bg-ground px-4 py-6 sm:px-6 lg:px-gutter lg:py-8"
+          className={`min-w-0 flex-1 bg-board lg:mb-sheet lg:mr-sheet lg:rounded-sheet lg:border lg:border-sheet-edge lg:bg-surface ${
+            flush ? "flex min-h-0 flex-col bg-surface" : "px-4 pb-6 sm:px-6 lg:p-gutter"
           }`}
         >
-          {flush ? children : (
-            <div className={hasNav ? "mx-auto max-w-[1240px]" : "mx-auto max-w-[1100px]"}>
-              {/* Without a sidebar there is nothing else naming the product, and
-                  a screen whose product cannot be named reads as a template. */}
-              {!hasNav && (
-                <p className="mb-7 hidden items-center gap-2 text-body font-semibold text-ink lg:flex">
-                  <span className="text-ink">
-                    <Mark size={18} />
-                  </span>
-                  {brand}
-                </p>
-              )}
-              {children}
-            </div>
+          {flush ? (
+            children
+          ) : (
+            <div className="mx-auto max-w-[1240px]">{children}</div>
           )}
         </main>
       </div>
@@ -180,17 +169,31 @@ export default function Shell({
   );
 }
 
-// The title row. A noun at 24/600, one grey sentence about the data under it —
-// the screen's finding, never a sentence about the interface — and the
+// The head of a screen, on a field of the board: on a phone the sheet fills the
+// window, so without this the frame survives only as a 48px bar and the world
+// goes missing from the screen it was chosen for. The band bleeds to the edges,
+// carries the title, the question and its figure, and ends where the records
+// begin — a form laid on the board. At lg the frame is already around the
+// sheet, so the band turns itself off.
+export function Band({ children }) {
+  return (
+    <div className="-mx-4 mb-4 bg-board px-4 pb-4 pt-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:mb-6 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-0">
+      {children}
+    </div>
+  );
+}
+
+// The title row of a sheet. The screen's name as its one h1, the finding under
+// it in one sentence about the data — never about the interface — and the
 // freshness stamp with any real action on the right.
 export function PageHead({ title, finding, stamp, actions }) {
   return (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-x-8 gap-y-3">
+    <div className="mb-5 flex flex-wrap items-start justify-between gap-x-8 gap-y-3">
       <div className="min-w-0">
-        <h1 className="text-title font-semibold text-ink">{title}</h1>
-        {finding && (
-          <p className="mt-1.5 max-w-[68ch] text-body text-muted">{finding}</p>
-        )}
+        <h1 className="text-fig font-semibold tracking-[-0.014em] text-ink lg:text-title">
+          {title}
+        </h1>
+        {finding && <p className="mt-1.5 max-w-[68ch] text-body text-muted">{finding}</p>}
       </div>
       {(stamp || actions) && (
         <div className="flex flex-none items-center gap-3">

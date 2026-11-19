@@ -64,15 +64,21 @@ export const Icon = {
   arrow: (p) => <svg {...S} {...p}><path d="M3 8h10M9 4l4 4-4 4" /></svg>,
 };
 
-// The mark: a message that became a task. Drawn, not a letter in a box.
-export function Mark({ size = 20 }) {
+// The mark: the office's own datestamp — a struck ring with the hour bar
+// across it, sitting a little off-square the way a hand-struck stamp does.
+// Drawn, never a letter in a box.
+export function Mark({ size = 22 }) {
   return (
     <svg
-      width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden
-      stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
+      width={size} height={size} viewBox="0 0 22 22" fill="none" aria-hidden
+      stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"
     >
-      <path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h9A2.5 2.5 0 0 1 17 5.5v6a2.5 2.5 0 0 1-2.5 2.5H8.2L4.4 17.1a.5.5 0 0 1-.8-.4V14A2.5 2.5 0 0 1 3 11.5z" />
-      <path d="M6.9 8.6l2 2 4.2-4.2" />
+      <g transform="rotate(-8 11 11)">
+        <circle cx="11" cy="11" r="8.1" strokeWidth="1.7" />
+        <circle cx="11" cy="11" r="5.1" strokeWidth="1" opacity="0.5" />
+        <path d="M3.4 11h15.2" strokeWidth="1.7" />
+        <path d="M11 6.6v2.1M11 13.3v2.1" strokeWidth="1" opacity="0.6" />
+      </g>
     </svg>
   );
 }
@@ -84,10 +90,12 @@ export function Panel({
   title, count, action, note, children, className = "", pad = true, as: Tag = "section",
 }) {
   return (
-    <Tag className={`overflow-hidden rounded-card border border-edge bg-surface ${className}`}>
+    <Tag
+      className={`overflow-hidden rounded-card border border-edge bg-surface lg:rounded-none lg:border-0 ${className}`}
+    >
       {title && (
-        <header className="flex items-center justify-between gap-4 border-b border-edge px-5 py-3">
-          <h2 className="min-w-0 truncate text-section font-semibold text-ink">{title}</h2>
+        <header className="flex items-center justify-between gap-4 border-b border-edge px-5 py-3 lg:px-0">
+          <h2 className="min-w-0 truncate font-narrow text-section font-semibold text-ink">{title}</h2>
           <div className="flex flex-none items-center gap-3">
             {count != null && <span className="text-small tabular text-faint">{count}</span>}
             {action}
@@ -95,11 +103,11 @@ export function Panel({
         </header>
       )}
       {note && (
-        <p className="border-b border-edge bg-raised/50 px-5 py-2.5 text-small leading-snug text-faint">
+        <p className="border-b border-edge bg-raised px-5 py-2.5 text-small leading-snug text-faint">
           {note}
         </p>
       )}
-      <div className={pad ? "p-5" : ""}>{children}</div>
+      <div className={pad ? "p-5 lg:px-0" : ""}>{children}</div>
     </Tag>
   );
 }
@@ -110,7 +118,7 @@ export function Section({ title, count, action, children, className = "", id }) 
   return (
     <section className={className} id={id}>
       <div className="mb-2.5 flex items-baseline justify-between gap-4">
-        <h2 className="text-section font-semibold text-ink">{title}</h2>
+        <h2 className="font-narrow text-section font-semibold text-ink">{title}</h2>
         <div className="flex flex-none items-baseline gap-3">
           {count != null && <span className="text-small tabular text-faint">{count}</span>}
           {action}
@@ -125,14 +133,53 @@ export function Section({ title, count, action, children, className = "", id }) 
 // The figure that answers a screen's question, with the sentence that reads it
 // aloud beside it. Red only when the answer is bad: a count of work waiting is
 // bad at one and fine at zero.
-export function Lead({ value, tone = "auto", children }) {
+export function Lead({ value, tone = "auto", label, children }) {
   const bad = tone === "negative" || (tone === "auto" && Number(value) > 0);
   return (
-    <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1">
-      <span className={`text-kpi tabular ${bad ? "text-[var(--negative)]" : "text-ink"}`}>
-        {value}
-      </span>
-      <p className="min-w-0 flex-1 text-body text-muted">{children}</p>
+    <div>
+      {label && <p className="furniture mb-0.5 text-meta">{label}</p>}
+      <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1">
+        <span className={`text-kpi tabular leading-none ${bad ? "text-stamp" : "text-ink"}`}>
+          {value}
+        </span>
+        <p className="min-w-0 flex-1 text-body text-muted">{children}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── The signature move: the datestamp ────────────────────────────────────
+// A record's state is struck on the record, dated, slightly off-square — not a
+// tinted pill repeated down every row. Its first line is what happened, its
+// second is when. Three tones and no more: it needs him, the office closed it,
+// or it is waiting on WhatsApp's own window.
+export function Stamp({ state, when, tone = "needs", strike = false, title }) {
+  return (
+    <span
+      title={title}
+      className={`stamp stamp-${tone} ${strike ? "stamp-strike" : ""} flex-none`}
+    >
+      <span>{state}</span>
+      {when && <span className="when">{when}</span>}
+    </span>
+  );
+}
+
+// A track drawn at its true ratio: no stub at zero, no padded range, both ends
+// labelled. The one data mark on these screens, in the office's own green.
+export function Track({ ratio = 0, left, right, className = "" }) {
+  const pct = Math.max(0, Math.min(1, Number(ratio) || 0)) * 100;
+  return (
+    <div className={className}>
+      <div className="h-2 w-full bg-raised" role="presentation">
+        {pct > 0 && <div className="h-full bg-furniture" style={{ width: pct + "%" }} />}
+      </div>
+      {(left || right) && (
+        <div className="mt-1.5 flex items-baseline justify-between gap-3 text-small text-faint">
+          <span className="tabular">{left}</span>
+          <span className="tabular">{right}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -146,7 +193,7 @@ const COLS = { 2: "sm:grid-cols-2", 3: "sm:grid-cols-3", 4: "sm:grid-cols-4" };
 export function Stats({ items, className = "" }) {
   return (
     <dl
-      className={`grid grid-cols-2 overflow-hidden rounded-card border border-edge bg-surface ${
+      className={`grid grid-cols-2 overflow-hidden rounded-card border border-edge bg-surface lg:rounded-none lg:border-0 lg:bg-transparent ${
         COLS[items.length] || "sm:grid-cols-3"
       } ${className}`}
     >
@@ -157,10 +204,10 @@ export function Stats({ items, className = "" }) {
             i >= 2 ? "border-t" : ""
           } sm:border-l sm:border-t-0 sm:first:border-l-0`}
         >
-          <dt className="truncate text-small text-faint">{it.label}</dt>
+          <dt className="furniture truncate text-small">{it.label}</dt>
           <dd
-            className={`mt-1.5 text-kpi tabular leading-none ${
-              it.tone === "negative" && it.value > 0 ? "text-[var(--negative)]" : "text-ink"
+            className={`mt-1.5 text-fig tabular leading-none ${
+              it.tone === "negative" && it.value > 0 ? "text-stamp" : "text-ink"
             }`}
           >
             {it.value}
@@ -191,7 +238,7 @@ export function Status({ dot = "muted", children, title }) {
   return (
     <span
       title={title}
-      className="inline-flex h-5 flex-none items-center gap-1.5 whitespace-nowrap rounded-chip bg-[var(--pill-neutral-bg)] pl-1.5 pr-2 text-small font-medium text-[var(--pill-neutral-ink)]"
+      className="inline-flex flex-none items-center gap-1.5 whitespace-nowrap text-small text-muted"
     >
       <span aria-hidden className={`h-1.5 w-1.5 flex-none rounded-full ${DOT[dot]}`} />
       {children}
@@ -202,13 +249,11 @@ export function Status({ dot = "muted", children, title }) {
 // A pale tint with dark text of the same hue. Reserved for a fact that needs a
 // decision: a clock time a task is due at.
 export function Tag({ tone = "warning", children, title }) {
-  const bg = { warning: "var(--pill-warning-bg)", negative: "var(--pill-negative-bg)", positive: "var(--pill-positive-bg)" }[tone];
-  const ink = { warning: "var(--pill-warning-ink)", negative: "var(--pill-negative-ink)", positive: "var(--pill-positive-ink)" }[tone];
+  const ink = { warning: "text-stamp", negative: "text-stamp", positive: "text-furniture" }[tone];
   return (
     <span
       title={title}
-      style={{ background: bg, color: ink }}
-      className="inline-flex h-5 flex-none items-center whitespace-nowrap rounded-chip px-1.5 text-small font-medium tabular"
+      className={`inline-flex flex-none items-center gap-1 whitespace-nowrap border border-current px-1.5 py-px font-narrow text-small font-semibold tabular ${ink}`}
     >
       {children}
     </span>
