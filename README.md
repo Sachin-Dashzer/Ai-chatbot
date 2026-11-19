@@ -1,6 +1,14 @@
-# Ankit Desk – WhatsApp task bot (Next.js + MongoDB + Tailwind, JavaScript)
+# Ankit Desk – **Love**, a WhatsApp assistant (Next.js + MongoDB + Tailwind, JavaScript)
 
-Ankit gives tasks by WhatsApp voice note or text. The team gets them on WhatsApp, replies once a day, and the bot follows up automatically. Live web boards show the status of every task.
+Ankit talks to **Love** on WhatsApp. She takes his tasks and meetings by voice note or text, hands
+the work to his team, chases it, keeps his calendar, remembers what he tells her, and reports back
+through the day. The team get plain task messages with three buttons; Ankit gets Love. Live web
+boards show the status of every task.
+
+**Only Ankit hears Love.** The team get the same direct, professional messages they always did —
+warmth aimed at someone being handed work reads as a manager going soft, and the three buttons under
+a task are the whole of what they need. The team never talk to an AI at all: they tap, or they reply
+in words, and the words are only ever read as a status.
 
 **Stack:** Next.js 15 (App Router, JavaScript) · MongoDB (Atlas) · Tailwind CSS · Node 20 · node-cron · WhatsApp Cloud API · OpenAI (Whisper for voice, GPT for understanding messages).
 
@@ -16,10 +24,14 @@ Ankit gives tasks by WhatsApp voice note or text. The team gets them on WhatsApp
 |---|---|
 | Any time | Ankit sends a voice note or text. AI turns it into tasks (several per message are fine) and confirms with task numbers |
 | Instantly | **Every task goes straight to the person**, in full, with **Done / Working / Remark** buttons under it. No ranking, no queue, no waiting for a slot |
+| Instantly | **Every status reaches Ankit as it happens** — a tap on Done, or a typed "1 done, 2 stuck" — carrying the work itself and not just a task number. The evening overview still counts it |
+| 12:00 PM, 4:00 PM | **Ankit gets his own list** at the same two times, numbered so "1 done" answers it |
 | 12:00 PM, 4:00 PM | ONE message per person listing everything still pending on them, and asking where each one stands. They reply once, by text or voice: "1 done, 2 working, 3 stuck – need sir's approval", or tap the buttons. This is the only list the team gets, and it is also the retry: a task WhatsApp rejected goes out here |
 | 6:00 PM | **Ankit's overview**, his alone: everything he assigned today, per person, each one's status, the score, and what nobody has touched |
 | 6:00 PM | One reminder, only to people who owe an answer today and haven't given one |
-| 7:00 PM | Ankit's brief: yesterday's score, pending on Ankit, anything open a week or more, each person, who didn't reply, notes |
+| 7:00 PM | Ankit's brief: yesterday's score, pending on Ankit, anything open a week or more, each person, who didn't reply, notes, and **tomorrow** — the meetings he called and his own timed tasks, the night before, while there is still time to move something |
+| Whenever he asks | **`schedule`** — every meeting and timed task ahead, soonest first, each meeting carrying who has answered and who has not |
+| The times she sets | **The habits he asked for** — "remind me to drink water" and she pings him every day until he says *forget* |
 
 Messages go out only when there is something to deliver. Unfinished tasks carry forward.
 
@@ -58,6 +70,12 @@ own thing:
   meeting, so a meeting never shows the task buttons);
 - they can also just reply in words — "haan 10 baje theek hai" — and Ankit hears either way;
 - it goes **on the calendar**, with who has answered and who has not;
+- **it can be moved or called off in one line.** `move M1 to 5 pm` (also `kal 11`, `25 nov 4 pm`,
+  `monday 10:30`) gives it a new time and **invites everyone again rather than merely telling them**
+  — they answered about a different hour, so the old answers are cleared and the three buttons come
+  back; the 5-minute reminder follows the new time. `cancel M1` calls it off and everyone invited
+  hears so at once. A bare hour with no am/pm is read the way an office here says it: 1 to 7 is the
+  afternoon, 8 to 12 the morning. The confirmation always states the moment it settled on;
 - **everyone is reminded 5 minutes before, Ankit included.** A task reminder goes to one person;
   a meeting reminder goes to the room.
 
@@ -74,11 +92,55 @@ were outside the window. Create it with `npm run templates`; `MEETING_TEMPLATE="
 
 **Every team message is saved word for word** (voice notes as text), and every status reply is kept as a remark on its task.
 
+### What Love remembers
+
+Two kinds of thing, in one list, each numbered by its own id — so `forget 7` means the same thing
+next month as it does today.
+
+**Facts.** Anything lasting he tells her about himself, how he works, or the people around him:
+"remember I don't take calls after 9", "Ryan is a client, not staff", "I prefer short replies".
+She stores it as one short line, and **from then on it rides in every prompt she reads his messages
+with** — so the next instruction is understood in the light of it. Only what stays true is kept: a
+one-off instruction is a task, not a memory, and the same fact said twice is still one memory.
+
+**Habits.** "remind me to drink water" and she sets the times herself (water 11:00 · 14:00 · 17:00),
+confirms them with the number that cancels them, and pings him every day. Times he names are used
+exactly; days can be named too ("every Monday and Thursday"). Asking for the same habit again
+changes its clock instead of adding a second one that would ping him twice.
+
+A habit fires **at most once per slot per day**, and the slot is marked whether it was sent or
+skipped — so a server that was asleep all afternoon pings him for the slot it has just missed and
+not for all four at once. More than an hour late it is dropped rather than sent: a reminder that
+arrives an hour after it was useful is a surprise, not a reminder.
+
+| Command | Effect |
+|---|---|
+| `memory` | Everything she is holding, facts and habits, numbered |
+| `forget 4` | Drop that one — a fact, or a habit she stops pinging |
+
+### Talking to her
+
+Anything that is **not** a task, a meeting, a status or a command is a conversation, and she answers
+it herself — "what's left today?", "kal kya hai", "thank you". Every fact she is allowed to use is
+handed to her in the prompt: what she remembers about him, where his work stands this minute, the
+meetings ahead, and the last few lines between them. She is never asked to recall, only to speak,
+so a question about his day is answered from the database and not from imagination. If the model is
+unreachable she says so warmly and the command list is still one word away — she is never silent.
+
+Everything else she sends is **written, not generated**. A model that rewrites a message on its way
+out is a model that can reword an amount, a task number or a name, so the structured messages keep
+their exact wording and Love only opens and closes them.
+
 ### Ankit's commands (sent to the bot)
 
 | Command | Effect |
 |---|---|
 | `help` · `brief` · `list` | Commands · summary now · all open tasks |
+| `schedule` | Every meeting and timed task ahead, by day, with who has answered each meeting |
+| `move M1 to 5 pm` · `cancel M1` | A new time (everyone asked again) · called off (everyone told) |
+| `memory` · `forget 4` | What she is holding · drop one |
+| "remember I don't take calls after 9" | She keeps it and reads everything after it in that light |
+| "remind me to drink water" | A daily habit, at times she picks unless he names them |
 | `done 12` · `cancel 12` · `reopen 12` | Close / cancel / reopen |
 | `today` | Everything assigned today and its status (the 6 PM overview, on demand) |
 | `assign 12 Narendra` | Hand a task to someone else |
@@ -113,6 +175,7 @@ app/board/[key]/act/route.js    master board tick
 app/board/[key]/export/route.js CSV backup
 instrumentation.js              starts the daily scheduler when the server boots
 lib/bot.js                      all behaviour (tasks, buttons, replies, pending round, nudge, review, brief, commands)
+lib/love.js                     who Love is: her written lines, and the one prompt she speaks from
 lib/ai.js  lib/whatsapp.js      AI and WhatsApp clients
 lib/boards.js lib/settings.js   board data · per-person settings
 lib/people.js                   the team list: seed, validate, add, edit, remove (one set of rules for the screen and the chat)
@@ -185,6 +248,14 @@ A serverless host freezes the process between requests, so node-cron can never f
 - **The schedule.** `vercel.json` already carries it: one cron entry per slot, each once a day, hitting `/api/cron`. **Set `CRON_SECRET` in the Vercel project** — Vercel only sends the `Authorization: Bearer` header when that variable exists, and without it the endpoint answers 403 and nothing is sent. Entries are **UTC** and the slots are IST (+5:30), so `30 6` = 12:00, `30 10` = 16:00, `30 12` = 18:00, `30 13` = 19:00. Hobby fires within 59 minutes *after* the scheduled minute and `/api/cron` claims a slot up to 59 minutes late, so the jitter is absorbed on every plan; a test fails if a configured time has no entry covering it. Any external cron (cron-job.org, UptimeRobot) works the same way against `GET BASE_URL/api/cron?token=WA_VERIFY_TOKEN` — one URL covers all five slots (two pending rounds, review, reminder, brief), reading `PENDING_TIMES`, `REVIEW_TIME`, `NUDGE_TIME`, `BRIEF_TIME`, `WORK_DAYS` and `TIMEZONE` (`BATCH_TIMES`/`CHECKIN_TIME` are still read as their old names), and claiming each slot in the database so a retry can never send twice. `.github/workflows/cron.yml` is a backup for the due-time reminders only: GitHub throttles scheduled workflows hard (observed: 3 runs in 12 hours, not the `*/10` asked for), so do not rely on it for the fixed slots. It needs a `CRON_URL` secret and skips itself when that is missing.
 - **`BASE_URL`.** Set it in the host's variables. On Vercel it falls back to `VERCEL_PROJECT_PRODUCTION_URL` if unset, so board links keep working, but a deployment-specific URL changes on every deploy — set it explicitly to the production domain.
 
+**Habits and timed reminders need a frequent cron.** They belong to a clock time, not to one of the
+five fixed slots, so they go out on whichever `/api/cron` hit first comes after the time passes —
+within the hour, or not at all. On Railway node-cron runs them every minute and there is nothing to
+do. On Vercel the four `vercel.json` entries are the daily slots only: point an external cron
+(cron-job.org, UptimeRobot) at `GET BASE_URL/api/cron?token=WA_VERIFY_TOKEN` every 5 minutes, or
+habits will mostly be dropped as too late. `.github/workflows/cron.yml` is a weak backup for this
+(GitHub throttles scheduled workflows hard).
+
 Voice notes are transcribed after the webhook replies to Meta, which on a frozen process means the work must be kept alive: the webhook uses `after()` and `maxDuration = 60`. Still expect a few seconds of cold start on the first message after an idle spell.
 
 ---
@@ -209,6 +280,13 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{pending|review|nu
 - [ ] `pause Pulkit today` → nothing reaches him, everything is held; `resume Pulkit` → the next pending round delivers it
 - [ ] Someone who has never messaged the bot gets the `task_reminder` template with the task named in it, and their reply does not repeat it
 - [ ] `start Narendra` sends that template on demand; `start all` does the whole team
+- [ ] "remember I don't take calls after 9 pm" → she confirms it; `memory` lists it; `forget <n>` drops it
+- [ ] "remind me to drink water" → she names the times; the first one arrives on the hour; it does not arrive twice
+- [ ] `schedule` → tomorrow's meeting, with who has not answered yet
+- [ ] `move M1 to 5 pm` → both attendees get it again with buttons, their old answers gone, the 5-minute ping follows the new time; `cancel M1` → both told, and it leaves the calendar
+- [ ] Someone taps **Done** → Ankit hears it within seconds, with the task text in it
+- [ ] 12 noon → Ankit gets his own pending list, and "1 done" answers its numbering
+- [ ] "thank you" → she answers in her own words, not with the command list
 - [ ] Before go-live: drop the `ankit_desk` database in Atlas (clears test data)
 
 ---

@@ -37,6 +37,14 @@ export class FakeAI {
   // test can tell a message that went through the pass from one that skipped it.
   async polish(text) { return text; }
   async parseOwner(text, openTasks = []) {
+    // A lasting fact about him, a habit he wants, and a message that is only conversation —
+    // the three shapes the real prompt added. Checked first: each of these also contains
+    // words the task branches below would otherwise match.
+    if (/^remember /i.test(text)) return { memories: [{ text: "Does not take calls after 9 PM" }] };
+    if (/drink water/i.test(text)) {
+      return { habits: [{ label: "drink water", text: "A glass of water, Ankit 💛", times: ["11:00", "14:00", "17:00"], days: "daily" }] };
+    }
+    if (/thank|how are you|love you/i.test(text)) return {};
     if (text === VOICE.v1) return { tasks: [{ owner: "Himanshu", task: "Send Galaxy Royal final invoice" }] };
     if (text === VOICE.v2) return { tasks: [
       { owner: "Himanshu", task: "Fix Sector 76 society site visit" },
@@ -70,6 +78,13 @@ export class FakeAI {
     if (name === "Rajneesh") return null;
     return "Amazon ads, ad spend reports";
   }
+  // The real one writes Love’s own words. Here it proves only what a test can check: that
+  // she was reached, and which facts her prompt was given.
+  async chat(system, text) {
+    this.lastChatSystem = system;
+    return "Any time, Ankit 💛";
+  }
+
   async parseStatus(text, items, meetings = []) {
     if (meetings.length && /theek hai|i'll be there/i.test(text)) {
       return { updates: [], meeting_updates: [{ meeting_id: meetings[0].id, reply: "yes", note: null }], other: null };
@@ -103,8 +118,9 @@ export function setup(clock) {
     ],
   });
   const wa = new FakeWA();
-  const bot = new Bot({ settings: loadSettings({}), store: new MemoryStore(), wa, ai: new FakeAI(), directory, now: () => clock.t });
-  return { bot, wa };
+  const ai = new FakeAI();
+  const bot = new Bot({ settings: loadSettings({}), store: new MemoryStore(), wa, ai, directory, now: () => clock.t });
+  return { bot, wa, ai };
 }
 
 let n = 0;
