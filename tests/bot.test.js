@@ -123,10 +123,12 @@ test("closed 24h window: the template carries what it can, and the full message 
   await bot.runPending();
   assert.equal(wa.to(PULKIT).filter((x) => x.kind === "template").length, 2);
 
-  // The reply opens the window. A template parameter cannot carry a newline, so what it showed
-  // him was the message flattened onto one line - not the message. Both are now sent in full.
+  // The template carried the task's own words, so the reply brings only its buttons on a short
+  // line — the task is not sent to him a second time.
+  assert.match(wa.to(PULKIT).find((x) => x.kind === "template").params[1], /^Share 7-day Amazon ad spend report \(#\d+\)$/);
   await bot.handleMessage(text(PULKIT, "ok"));
-  assert.ok(wa.to(PULKIT).some((x) => x.kind === "buttons" && x.body.includes("Amazon") && x.body.includes("New task from Ankit")));
+  assert.ok(wa.to(PULKIT).some((x) => x.kind === "buttons" && x.body.includes("Amazon") && x.body.includes("Tap your status")));
+  assert.ok(!wa.to(PULKIT).some((x) => x.body && x.body.includes("New task from Ankit")));
   // His list is an announcement, so it comes back as plain text, buttons or not.
   assert.ok(wa.to(PULKIT).some((x) => x.kind === "text" && x.body.includes("Pending with you")));
   assert.equal(await bot.store.count("pending_msgs", { phone: PULKIT }), 0);
@@ -949,7 +951,7 @@ test("Love remembers: a lasting fact rides every prompt, a habit pings itself, a
 
   // A fact. It is confirmed in her own voice, and it is one memory however often he says it.
   await bot.handleMessage(text(OWNER, "remember I don't take calls after 9 pm"));
-  assert.match(wa.last(OWNER).body, /I'll remember that: Does not take calls after 9 PM/);
+  assert.match(wa.last(OWNER).body, /I will keep this in mind: Does not take calls after 9 PM/);
   await bot.handleMessage(text(OWNER, "remember I don't take calls after 9 pm"));
   assert.equal((await bot.memories("fact")).length, 1);
 
@@ -983,7 +985,7 @@ test("Love remembers: a lasting fact rides every prompt, a habit pings itself, a
   assert.match(wa.last(OWNER).body, /Does not take calls after 9 PM/);
   assert.match(wa.last(OWNER).body, /drink water — 11:00, 14:00, 17:00/);
   await bot.handleMessage(text(OWNER, `forget ${habit.id}`));
-  assert.match(wa.last(OWNER).body, /won't remind you to drink water/);
+  assert.match(wa.last(OWNER).body, /reminder to drink water has been stopped/);
   clock.at(17, 11);
   const before = wa.to(OWNER).length;
   await bot.runDue();
@@ -1019,18 +1021,18 @@ test("Love keeps him in the loop: his own list at noon, every tap as it happens,
   // A tap from Himanshu reaches him at once, carrying the work and not just a number.
   const open = (await bot.openTasks("Himanshu"))[0];
   await bot.handleMessage(btn(HIMANSHU, `st:${open.id}:done`));
-  assert.match(wa.last(OWNER).body, /\*Himanshu\* just replied/);
+  assert.match(wa.last(OWNER).body, /\*Himanshu\* has replied/);
   assert.match(wa.last(OWNER).body, new RegExp(`#${open.id} ${open.description}`));
 
   // So does a status he typed instead of tapping.
   await bot.handleMessage(text(SHALU, "1 done"));
-  assert.match(wa.last(OWNER).body, /\*Shalu\* just replied/);
+  assert.match(wa.last(OWNER).body, /\*Shalu\* has replied/);
   assert.match(wa.last(OWNER).body, /Oct collections/);
 
   // What is ahead, on demand: the meeting, the day it falls on, and who has not answered.
   await bot.handleMessage(text(OWNER, "schedule"));
   const ahead = wa.last(OWNER).body;
-  assert.match(ahead, /What's ahead/);
+  assert.match(ahead, /Upcoming schedule/);
   assert.match(ahead, /Tomorrow/);
   assert.match(ahead, /Tally data review/);
   assert.match(ahead, /still waiting on Himanshu, Shalu/);
@@ -1081,7 +1083,7 @@ test("a meeting moved and a meeting called off: everyone asked again, reminded a
   for (const p of [HIMANSHU, SHALU]) assert.match(wa.last(p).body, /Meeting cancelled/);
   assert.match(wa.last(OWNER).body, /cancelled/);
   assert.equal((await bot.upcomingMeetings()).length, 0);
-  assert.match(await bot.buildSchedule(), /Nothing on the clock/);
+  assert.match(await bot.buildSchedule(), /no upcoming meetings or timed tasks/);
   // A tap on its old button is answered, not acted on.
   await bot.handleMessage(btn(SHALU, `mt:${m0.id}:yes`));
   assert.match(wa.last(SHALU).body, /not a meeting on your list any more/);
