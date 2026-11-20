@@ -36,7 +36,7 @@ export class FakeAI {
   // The real one corrects spelling and grammar; here it only has to be the identity, so a
   // test can tell a message that went through the pass from one that skipped it.
   async polish(text) { return text; }
-  async parseOwner(text, openTasks = []) {
+  async parseOwner(text, openTasks = [], now = "", memory = "", meetings = []) {
     // A lasting fact about him, a habit he wants, and a message that is only conversation —
     // the three shapes the real prompt added. Checked first: each of these also contains
     // words the task branches below would otherwise match.
@@ -45,6 +45,15 @@ export class FakeAI {
       return { habits: [{ label: "drink water", text: "A glass of water, Ankit 💛", times: ["11:00", "14:00", "17:00"], days: "daily" }] };
     }
     if (/thank|how are you|love you/i.test(text)) return {};
+    // A follow-up read together with the instruction it answers.
+    if (/^EARLIER \(not understood\): send the deck[\s\S]*NOW: it's for me/i.test(text)) {
+      return { tasks: [{ owner: "me", task: "Send the deck" }] };
+    }
+    if (/^send the deck$/i.test(text)) return { unclear: ["Send the deck"] };
+    // Conversation the model also, wrongly, dropped in unclear.
+    if (/what's up/i.test(text)) return { chat: true, unclear: [text] };
+    // A meeting with someone who is not on the team.
+    if (/with ryan/i.test(text)) return { meetings: [{ title: null, with: ["Ryan"], at: "2026-11-17T18:00", note: null }] };
     if (text === VOICE.v1) return { tasks: [{ owner: "Himanshu", task: "Send Galaxy Royal final invoice" }] };
     if (text === VOICE.v2) return { tasks: [
       { owner: "Himanshu", task: "Fix Sector 76 society site visit" },
@@ -61,6 +70,10 @@ export class FakeAI {
     // flags that it reasoned rather than read a name.
     if (/gst refund/i.test(text)) {
       return { tasks: [{ owner: "Pulkit", task: "File the GST refund", person_sure: false, why: "handles GST refunds" }] };
+    }
+    // A new time for a meeting already listed. Like the real model, it reads "5 PM" as tomorrow.
+    if (/change .*meeting|reschedul/i.test(text) && meetings.length) {
+      return { moves: [{ meeting_id: meetings[0].id, at: "2026-11-17T17:00" }] };
     }
     if (/meeting|baje call/i.test(text)) {
       return { meetings: [{ title: "Tally data review", with: ["Himanshu", "Shalu"], at: "2026-11-17T16:00", note: null }] };

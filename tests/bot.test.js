@@ -315,7 +315,7 @@ test("per-person settings: reminder off, reporting days, and a pause that holds 
     { owner: "Pulkit", task: "Ad spend report" },
     { owner: "Pulkit", task: "Call courier now" }] });
   await bot.handleMessage(text(OWNER, "four tasks"));
-  assert.match(wa.last(OWNER).body, /held – Pulkit is paused/);
+  assert.match(wa.last(OWNER).body, /held, Pulkit is paused/);
   assert.equal(wa.to(PULKIT).length, nPulkit); // on leave means on leave: nothing gets through
   // Held means unsent, not queued twice: the tasks sit at notified:0 and the first pending
   // round after the pause carries them.
@@ -727,8 +727,8 @@ test("a meeting: both sides invited, answered, and reminded 5 minutes before —
     assert.match(inv.body, /04:00 PM/);
     assert.deepEqual(inv.buttons.map((b) => b.id), [`mt:${m.id}:yes`, `mt:${m.id}:no`, `mt:${m.id}:move`]);
   }
-  assert.match(wa.last(OWNER).body, /Meeting set/);
-  assert.match(wa.last(OWNER).body, /told Himanshu, Shalu/);
+  assert.match(wa.last(OWNER).body, /Meeting scheduled/);
+  assert.match(wa.last(OWNER).body, /Invited: Himanshu, Shalu/);
 
   // One answers by tapping, the other in words. Both reach Ankit.
   await bot.handleMessage(btn(HIMANSHU, `mt:${m.id}:yes`));
@@ -829,7 +829,7 @@ test("an invite to someone outside the 24-hour window: its own template, and a f
   const fb = b2.wa.to(HIMANSHU).find((x) => x.kind === "template");
   assert.equal(fb.name, "task_reminder");
   assert.match(fb.params[1], /Meeting called by Ankit/);
-  assert.match(b2.wa.last(OWNER).body, /told Himanshu, Shalu/);
+  assert.match(b2.wa.last(OWNER).body, /Invited: Himanshu, Shalu/);
 });
 
 test("the bot learns what someone handles from the tasks it is given, and never writes it unasked", async () => {
@@ -1004,7 +1004,7 @@ test("Love keeps him in the loop: his own list at noon, every tap as it happens,
   const { bot, wa } = setup(clock);
   for (const p of [HIMANSHU, SHALU]) await bot.handleMessage(text(p, "Hi"));
   await bot.handleMessage(voice(OWNER, "v2"));           // five tasks, one of them his own
-  await bot.handleMessage(text(OWNER, "meeting with Himanshu and Shalu at 4"));
+  await bot.handleMessage(text(OWNER, "meeting with Himanshu and Shalu tomorrow at 4"));
 
   // Noon: the team get their list, and so does he.
   clock.at(16, 12);
@@ -1049,7 +1049,7 @@ test("a meeting moved and a meeting called off: everyone asked again, reminded a
   const clock = makeClock(); clock.at(16, 10);
   const { bot, wa } = setup(clock);
   for (const p of [HIMANSHU, SHALU]) await bot.handleMessage(text(p, "Hi"));
-  await bot.handleMessage(text(OWNER, "meeting with Himanshu and Shalu at 4"));
+  await bot.handleMessage(text(OWNER, "meeting with Himanshu and Shalu tomorrow at 4"));
   const m0 = (await bot.upcomingMeetings())[0];
   await bot.handleMessage(btn(HIMANSHU, `mt:${m0.id}:yes`));
   assert.equal((await bot.getMeeting(m0.id)).responses.Himanshu, "yes");
@@ -1125,7 +1125,8 @@ test("a meeting with someone off the team goes on Ankit's calendar", async () =>
   assert.doesNotMatch(body, /couldn't tell/i);
   assert.match(body, /Meeting with Ryan[\s\S]*not on your team list/);
   const t = (await bot.openTasks("Ankit")).find((x) => /Ryan/.test(x.description));
-  assert.ok(t && t.due_at.startsWith("2026-11-17T18:00"));
+  // No day named, so today — even though the model said tomorrow.
+  assert.ok(t && t.due_at.startsWith("2026-11-16T18:00"));
 });
 
 test("delete all my meetings: shown first, cleared on the tap, team told", async () => {
@@ -1146,4 +1147,35 @@ test("delete all my meetings: shown first, cleared on the tap, team told", async
   assert.match(wa.last(HIMANSHU).body, /Meeting cancelled/);
   await bot.handleMessage(text(OWNER, "clear my calendar"));
   assert.match(wa.last(OWNER).body, /already clear/i);
+});
+
+test("no day named means today; a reschedule moves the meeting instead of cancelling it", async () => {
+  const clock = makeClock(); clock.at(16, 13);
+  const { bot, wa } = setup(clock);
+  for (const p of [HIMANSHU, SHALU]) await bot.handleMessage(text(p, "Hi"));
+  // The fake model answers 17 Nov 16:00; nothing in the words names a day, so it is today.
+  await bot.handleMessage(text(OWNER, "set a meeting with Himanshu and Shalu at 4"));
+  const m = (await bot.upcomingMeetings())[0];
+  assert.ok(m.at.startsWith("2026-11-16T16:00"), m.at);
+  assert.match(wa.last(OWNER).body, /Today, 04:00 PM/);
+
+  // "change ... meeting" is not a contact edit, and the move keeps the same meeting.
+  await bot.handleMessage(text(OWNER, "Change the Himanshu meeting time to 5 PM"));
+  assert.doesNotMatch(wa.last(OWNER).body, /Say which part/);
+  assert.match(wa.last(OWNER).body, /Meeting rescheduled[\s\S]*moved to today 05:00 PM/);
+  const all = await bot.upcomingMeetings();
+  assert.equal(all.length, 1);
+  assert.equal(all[0].id, m.id);
+  assert.match(wa.last(HIMANSHU).body, /Meeting moved/);
+});
+
+test("asking for the task list gets the formatted list", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  await bot.handleMessage(voice(OWNER, "v2"));
+  await bot.handleMessage(text(OWNER, "Provide list and status of all task"));
+  const body = wa.last(OWNER).body;
+  assert.match(body, /Open tasks \(5\)/);
+  assert.match(body, /^\*You\* \(1\)$/m);
+  assert.match(body, /^⬜ #\d+ /m);
 });
