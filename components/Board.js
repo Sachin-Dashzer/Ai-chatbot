@@ -315,10 +315,10 @@ export function MasterBoard({ data, boardKey }) {
             ) : (
               <ClosedRail cards={data.recent || []} total={data.recentTotal} />
             )}
-            <DayTrack day={data.day} />
           </div>
         )}
       </div>
+      <DayTrack day={data.day} />
     </>
   );
 }

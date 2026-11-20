@@ -37,13 +37,17 @@ const plainOneLine = (text) => text.replace(/[*_~]/g, "").replace(/\s*\n+\s*/g, 
 // indigo and magenta on an otherwise achromatic screen to say something the
 // name already said.
 function Avatar({ name, size = 36 }) {
+  // Two letters, because one initial is shared by half this team (Pulkit,
+  // Piyush, Praveen) and a tab you cannot tell apart files nothing.
+  const tab = name.replace(/[^A-Za-z ]/g, "").split(/s+/).filter(Boolean);
+  const letters = (tab.length > 1 ? tab[0][0] + tab[1][0] : name.slice(0, 2)).toUpperCase();
   return (
     <span
       aria-hidden
-      className="flex flex-none items-center justify-center rounded-full bg-raised text-meta font-medium text-muted"
-      style={{ width: size, height: size, boxShadow: "inset 0 0 0 1px var(--border)" }}
+      className="flex flex-none items-center justify-center border-l-2 border-furniture bg-raised font-narrow font-semibold text-furniture"
+      style={{ width: size, height: size, fontSize: size > 32 ? 13 : 12 }}
     >
-      {name.slice(0, 1).toUpperCase()}
+      {letters}
     </span>
   );
 }
@@ -64,7 +68,7 @@ function ChatList({ data, boardKey }) {
   return (
     <>
       <div className="flex h-14 flex-none items-center justify-between gap-3 border-b border-sheet-edge bg-board px-4">
-        <H className="text-section font-semibold text-ink">Chats</H>
+        <H className="text-fig font-semibold text-ink">Chats</H>
         <p className="text-small text-faint">
           {data.checkinSent ? `${waiting} still to reply` : `list goes out at ${data.listTime}`}
         </p>
@@ -78,8 +82,7 @@ function ChatList({ data, boardKey }) {
         >
           <span
             aria-hidden
-            className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-raised text-faint"
-            style={{ boxShadow: "inset 0 0 0 1px var(--border)" }}
+            className="flex h-9 w-9 flex-none items-center justify-center border-l-2 border-furniture bg-raised text-furniture"
           >
             <Icon.inbox width={16} height={16} />
           </span>
@@ -107,7 +110,7 @@ function ChatList({ data, boardKey }) {
                   <span className="flex-none text-small tabular text-faint">{c.last.time}</span>
                 )}
               </span>
-              <span className="mt-0.5 flex items-center gap-1.5">
+              <span className="mt-0.5 flex items-start gap-2">
                 <span className="min-w-0 flex-1 truncate text-meta text-muted">
                   {c.last ? (
                     <>
@@ -126,14 +129,16 @@ function ChatList({ data, boardKey }) {
                     <span className="text-faint">No messages yet</span>
                   )}
                 </span>
-                {c.state === "waiting" && (
-                  <span
-                    title="Has not replied to today's list"
-                    className="flex-none whitespace-nowrap border border-stamp px-1 font-narrow text-small font-semibold text-stamp"
-                  >
-                    No reply
-                  </span>
-                )}
+                <span className="-mt-px w-[58px] flex-none self-start text-right">
+                  {c.state === "waiting" && (
+                    <span
+                      title="Has not replied to today's list"
+                      className="whitespace-nowrap border border-stamp px-1 font-narrow text-small font-semibold text-stamp"
+                    >
+                      No reply
+                    </span>
+                  )}
+                </span>
               </span>
             </span>
           </a>
@@ -198,7 +203,7 @@ function Thread({ data, boardKey }) {
 
   return (
     <>
-      <div className="flex h-14 flex-none items-center gap-3 border-b border-sheet-edge bg-board px-3 sm:px-4">
+      <div className="flex h-14 flex-none items-center gap-3 border-b border-sheet-edge bg-board px-4">
         <a
           href={`/board/${boardKey}?tab=messages`}
           aria-label="Back to all chats"
@@ -210,7 +215,17 @@ function Thread({ data, boardKey }) {
         <div className="min-w-0 flex-1">
           <H className="truncate text-section font-semibold text-ink">{title}</H>
         </div>
-        {chat && <Status dot={STATE[chat.state].dot}>{STATE[chat.state].label}</Status>}
+        {chat &&
+          (chat.state === "waiting" ? (
+            <span
+              title="Has not replied to today's list"
+              className="flex-none whitespace-nowrap border border-stamp px-1 font-narrow text-small font-semibold text-stamp"
+            >
+              No reply
+            </span>
+          ) : (
+            <Status dot={STATE[chat.state].dot}>{STATE[chat.state].label}</Status>
+          ))}
       </div>
 
       {/* column-reverse: the newest day sits at the foot and the pane opens

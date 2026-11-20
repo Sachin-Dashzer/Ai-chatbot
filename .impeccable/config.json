@@ -29,6 +29,15 @@
         ],
         "createdAt": "2026-11-19T17:45:42.964Z",
         "reason": "model: newsprint is the dealt catalog world's own declared material; repainting a challenger would misrepresent the option being chosen"
+      },
+      {
+        "rule": "nested-cards",
+        "value": "*",
+        "files": [
+          "components/Chat.js"
+        ],
+        "createdAt": "2026-11-20T02:47:40.123Z",
+        "reason": "model: the 107 'nested cards' are the transcript's own message bubbles, which are the correct and universal form for a chat record; flattening them would destroy the readability of a record this product keeps word for word. The 8 identity tabs in the list register the same way the circular avatars they replaced did."
       }
     ]
   }

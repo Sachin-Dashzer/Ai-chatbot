@@ -74,9 +74,12 @@ function ageText(c) {
 // its time — on the carbon duplicate, which is where quoted words live.
 function RemarkList({ remarks }) {
   return (
-    <ul className="mt-2 space-y-px">
+    <ul className="mt-2">
       {remarks.map((r, i) => (
-        <li key={i} className="border-l-2 border-carbon-rule bg-carbon px-3 py-2 text-meta">
+        <li
+          key={i}
+          className="border-l-2 border-carbon-rule bg-carbon px-3 py-2 text-meta [&+li]:border-t [&+li]:border-t-carbon-rule"
+        >
           <span className="furniture">{r.person}</span>
           {r.status ? <span className="text-faint"> · {r.status.toLowerCase()}</span> : ""}
           <span className="px-1 text-faint">·</span>
