@@ -21,7 +21,7 @@
 
 owner:
   name: Ankit
-  phone: "918287037611"   # <-- Ankit's MAIN WhatsApp number (the one he gives commands from), NOT the bot number
+  phone: "919718115480"   # <-- Ankit's MAIN WhatsApp number (the one he gives commands from), NOT the bot number
 
 people:
   - name: Himanshu
@@ -63,7 +63,9 @@ people:
     aliases: [CA Piyush, Piyush ji]
     does: ""            # TODO: what does Piyush handle?
 
-  # - name: Sachinxxxdatabase and templates); the WhatsApp system; sharing client data (Ram & Associates, RIAN, Bluebell); TDS refunds"
+  - name: Sachin
+    phone: "918287037611"
+    does: "CRM (database and templates); the WhatsApp system; sharing client data (Ram & Associates, RIAN, Bluebell); TDS refunds"
 
   # ── your admin ────────────────────────────────────────────────────────────
   # You said meetings should be able to include "admin". Add them here with their

@@ -1095,3 +1095,53 @@ test("a meeting moved and a meeting called off: everyone asked again, reminded a
   assert.match(wa.last(OWNER).body, /When shall I move/);
   assert.equal((await bot.getMeeting(m1.id)).at.slice(0, 16), "2026-11-17T16:00", "nothing moved");
 });
+
+test("owner small talk is answered by Love, never as an unclear task", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  for (const t of ["Hii", "Who are you", "what's up"]) {
+    await bot.handleMessage(text(OWNER, t));
+    assert.doesNotMatch(wa.last(OWNER).body, /couldn't tell/i, t);
+    assert.match(wa.last(OWNER).body, /Any time, Ankit/, t);
+  }
+});
+
+test("a follow-up answers the instruction she could not place", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  await bot.handleMessage(text(OWNER, "send the deck"));
+  assert.match(wa.last(OWNER).body, /couldn't tell/i);
+  await bot.handleMessage(text(OWNER, "it's for me"));
+  assert.match(wa.last(OWNER).body, /Assigned[\s\S]*You[\s\S]*Send the deck/);
+});
+
+test("a meeting with someone off the team goes on Ankit's calendar", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  await bot.handleMessage(text(OWNER, "schedule a meeting at 6 with ryan"));
+  const body = wa.last(OWNER).body;
+  assert.doesNotMatch(body, /couldn't tell/i);
+  assert.match(body, /Meeting with Ryan[\s\S]*not on your team list/);
+  const t = (await bot.openTasks("Ankit")).find((x) => /Ryan/.test(x.description));
+  assert.ok(t && t.due_at.startsWith("2026-11-17T18:00"));
+});
+
+test("delete all my meetings: shown first, cleared on the tap, team told", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  for (const p of [HIMANSHU, SHALU]) await bot.handleMessage(text(p, "Hi"));
+  await bot.handleMessage(text(OWNER, "meeting at 4 for tally"));
+  await bot.handleMessage(text(OWNER, "remind me to call Mr Rahul at 9pm today"));
+  await bot.handleMessage(text(OWNER, "Saari meeting delete krdo"));
+  const card = wa.last(OWNER);
+  assert.match(card.body, /Delete these\?[\s\S]*M\d+[\s\S]*Call Mr Rahul/);
+  assert.equal((await bot.upcomingMeetings()).length, 1, "nothing deleted before the tap");
+  const id = card.buttons[0].id;
+  await bot.handleMessage(btn(OWNER, id));
+  assert.match(wa.last(OWNER).body, /calendar is clear/i);
+  assert.equal((await bot.upcomingMeetings()).length, 0);
+  assert.equal((await bot.openTasks("Ankit")).filter((t) => t.due_at).length, 0);
+  assert.match(wa.last(HIMANSHU).body, /Meeting cancelled/);
+  await bot.handleMessage(text(OWNER, "clear my calendar"));
+  assert.match(wa.last(OWNER).body, /already clear/i);
+});
