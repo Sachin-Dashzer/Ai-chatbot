@@ -102,7 +102,6 @@ const Timed = ({ n }) => (
 export default async function CalendarPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const bot = getBot();
-  await globalThis.__ankitDeskDemo; // the demo seed, if it is still running
   const s = bot.s;
   const today = bot.today();
   const owner = bot.d.owner.name;

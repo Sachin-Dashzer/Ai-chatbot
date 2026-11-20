@@ -36,7 +36,7 @@ export class FakeAI {
   // The real one corrects spelling and grammar; here it only has to be the identity, so a
   // test can tell a message that went through the pass from one that skipped it.
   async polish(text) { return text; }
-  async parseOwner(text, openTasks = [], now = "", memory = "", meetings = []) {
+  async parseOwner(text, openTasks = [], now = "", memory = "", meetings = [], closed = []) {
     // A lasting fact about him, a habit he wants, and a message that is only conversation —
     // the three shapes the real prompt added. Checked first: each of these also contains
     // words the task branches below would otherwise match.
@@ -54,6 +54,12 @@ export class FakeAI {
     if (/what's up/i.test(text)) return { chat: true, unclear: [text] };
     // A meeting with someone who is not on the team.
     if (/with ryan/i.test(text)) return { meetings: [{ title: null, with: ["Ryan"], at: "2026-11-17T18:00", note: null }] };
+    // "the 1st task I gave Himanshu": his lowest id among the recently closed ones, which is
+    // the list the real prompt reads too.
+    if (/reopen the 1st task/i.test(text)) {
+      const his = closed.filter((t) => t.owner === "Himanshu").map((t) => t.id);
+      return { reopens: his.length ? [Math.min(...his)] : [] };
+    }
     if (text === VOICE.v1) return { tasks: [{ owner: "Himanshu", task: "Send Galaxy Royal final invoice" }] };
     if (text === VOICE.v2) return { tasks: [
       { owner: "Himanshu", task: "Fix Sector 76 society site visit" },

@@ -180,22 +180,10 @@ lib/ai.js  lib/whatsapp.js      AI and WhatsApp clients
 lib/boards.js lib/settings.js   board data · per-person settings
 lib/people.js                   the team list: seed, validate, add, edit, remove (one set of rules for the screen and the chat)
 app/board/[key]/people/route.js master board People screen writes      components/People.js
-lib/store/mongo.js  memory.js   MongoDB store · in-memory store (tests/demo)
-lib/scheduler.js lib/runtime.js lib/time.js lib/config.js lib/demo.js
+lib/store/mongo.js  memory.js   MongoDB store · in-memory store (tests, local only)
+lib/scheduler.js lib/runtime.js lib/time.js lib/config.js
 people.yaml  templates.json  scripts/create-templates.js  tests/
 ```
-
----
-
-## See it running in 2 minutes (no WhatsApp, no database)
-
-```bash
-npm install
-npm run build
-DEMO=1 STORE=memory npm start
-```
-
-The console prints board links (master + team) with sample tasks. Open them in a browser.
 
 ---
 

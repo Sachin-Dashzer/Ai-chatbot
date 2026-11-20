@@ -328,7 +328,7 @@ The final layout with each value replaced by a still, flat `raised` bar at its r
 
 **The True Ratio Rule.** Every track is drawn at its real ratio, with no stub at zero and no padded range.
 
-**The No-Invented-Data Rule.** Every figure on every screen comes from the store or `lib/demo.js`. A number is never written to make a layout look finished.
+**The No-Invented-Data Rule.** Every figure on every screen comes from the store. A number is never written to make a layout look finished.
 
 **The Drawn-Icon Rule.** One 16px icon set, 1.5px stroke, `currentColor`, drawn in `components/ui.js`. No emoji, no glyph fonts, no icon packages; the brand mark is a drawn struck ring, never a letter in a box.
 
@@ -341,7 +341,7 @@ The final layout with each value replaced by a still, flat `raised` bar at its r
 - **Do** give panels, rails and record groups a 1px edge on the phone and flatten them at `lg` (`lg:rounded-none lg:border-0`).
 - **Do** keep the board visible in every gap down the whole phone scroll, and keep the Band under every screen head below `lg`.
 - **Do** draw every track at its true ratio, with no bar at all at zero.
-- **Do** take every figure from the store or `lib/demo.js`.
+- **Do** take every figure from the store.
 - **Do** set every figure tabular, and set form labels in Archivo Narrow green furniture.
 - **Do** keep the stamp-strike as the only authored motion: 90ms, `steps(2, end)`, and honour `prefers-reduced-motion`, which disables it, the nav sheet and the press scale.
 

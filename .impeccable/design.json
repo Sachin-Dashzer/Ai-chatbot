@@ -210,7 +210,7 @@
       { "name": "The One Shadow Rule", "body": "Only a true overlay casts a shadow. A panel, a card, a row, a stamp and the sheet itself never do.", "section": "elevation" },
       { "name": "The News-Only Stamp Rule", "body": "A stamp strikes only where the state is news. An ordinary open record carries its age as plain text; a closed one carries only a struck-through line. A mark on every row is the status pill this world exists to refuse, whatever shape it is cut in.", "section": "components" },
       { "name": "The True Ratio Rule", "body": "Every track is drawn at its real ratio, with no stub at zero and no padded range.", "section": "components" },
-      { "name": "The No-Invented-Data Rule", "body": "Every figure on every screen comes from the store or lib/demo.js. A number is never written to make a layout look finished.", "section": "components" },
+      { "name": "The No-Invented-Data Rule", "body": "Every figure on every screen comes from the store. A number is never written to make a layout look finished.", "section": "components" },
       { "name": "The Drawn-Icon Rule", "body": "One 16px icon set, 1.5px stroke, currentColor, drawn in components/ui.js. No emoji, no glyph fonts, no icon packages; the brand mark is a drawn struck ring, never a letter in a box.", "section": "components" }
     ],
     "dos": [
@@ -220,7 +220,7 @@
       "Do give panels, rails and record groups a 1px edge on the phone and flatten them at lg (lg:rounded-none lg:border-0).",
       "Do keep the board visible in every gap down the whole phone scroll, and keep the Band under every screen head below lg.",
       "Do draw every track at its true ratio, with no bar at all at zero.",
-      "Do take every figure from the store or lib/demo.js.",
+      "Do take every figure from the store.",
       "Do set every figure tabular, and set form labels in Archivo Narrow green furniture.",
       "Do keep the stamp-strike as the only authored motion: 90ms, steps(2, end), and honour prefers-reduced-motion, which disables it, the nav sheet and the press scale."
     ],

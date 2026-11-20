@@ -49,7 +49,7 @@ English with every name, amount and date intact.
 ## Capabilities and Constraints
 
 - Next.js 15 App Router, **plain JavaScript (no TypeScript)**, Tailwind CSS v3, React 19.
-- MongoDB Atlas in production; an in-memory store for tests and `DEMO=1`.
+- MongoDB Atlas in production; an in-memory store for tests and local development only.
 - Screens: Calendar, Needs attention (also the full task list and completed work), Mine, Messages,
   People, and the view-only team board. **The Today page at `/` is retired** (confirmed with the
   user); `/` redirects to the master board.
@@ -73,8 +73,6 @@ English with every name, amount and date intact.
 ## Evidence on Hand
 
 - Real team names and phone numbers in `people.yaml` — **sensitive**, and the repo must stay private.
-- A believable demo dataset in `lib/demo.js` (tasks, meetings, messages, remarks) that the screens
-  render from with `DEMO=1 STORE=memory`.
 - The measured record of the previous two design rounds in `REDESIGN_PROGRESS.md`, and screenshots
   of the current screens in `.taste-skill/before-r3/`.
 - There are no customers, no metrics, no logos, no testimonials and no growth figures. None may be

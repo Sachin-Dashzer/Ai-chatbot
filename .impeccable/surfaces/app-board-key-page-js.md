@@ -55,7 +55,7 @@ verdict, DESIGN.md, and every shipping raster carrying its provenance
 No login: an unguessable board key is the whole access control. Plain JavaScript, Tailwind v3,
 Next.js 15 App Router, React 19; `npm test` (25 scenarios) must keep passing. Every grey that carries
 words reaches 4.5:1; nothing under 11px; touch targets 44px or more. No invented data of any kind —
-the screens render from the real store, or from `lib/demo.js` under `DEMO=1`.
+the screens render from the real store.
 
 ## Unresolved
 

@@ -35,6 +35,9 @@ export async function POST(req) {
         // work running past the response: serverless hosts freeze the process the moment it is sent,
         // which would drop the task silently. On an always-on server it behaves the same way.
         after(() => bot.handleMessage(msg).catch((e) => console.error("[ankit-desk] message failed", msg.id, e)));
+        // A safety net for the 5-minute meeting and task reminders: the minute cron is what
+        // actually runs them, but a host whose cron is late would otherwise send them late too.
+        after(() => bot.tickDue().catch((e) => console.error("[ankit-desk] due check failed", e)));
       }
     }
   }

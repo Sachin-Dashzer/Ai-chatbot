@@ -1179,3 +1179,44 @@ test("asking for the task list gets the formatted list", async () => {
   assert.match(body, /^\*You\* \(1\)$/m);
   assert.match(body, /^⬜ #\d+ /m);
 });
+test("a closed task reopened by a swipe-reply and by words", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  await bot.handleMessage(text(HIMANSHU, "Hi"));
+  await bot.handleMessage(voice(OWNER, "v2"));
+  const his = (await bot.openTasks("Himanshu")).map((t) => t.id).sort((a, b) => a - b);
+  assert.equal(his.length, 2);
+  for (const id of his) await bot.handleMessage(text(OWNER, `done ${id}`));
+
+  // A swipe-reply: Meta sends only the id of the message he swiped on, so the bot has to
+  // find its own words again to know which task "this task" means.
+  await bot.store.insert("sent_msgs", { wamid: "w1", at: bot.nowIso(),
+    text: `*Himanshu* has replied:\n✅ *Done* — #${his[1]} Send AMC quote to Galaxy Royal` });
+  await bot.handleMessage({ from: OWNER, id: "swipe1", type: "text",
+    text: { body: "reopen this task" }, context: { id: "w1" } });
+  assert.equal((await bot.getTask(his[1])).status, "working");
+  assert.match(wa.last(OWNER).body, new RegExp(`#${his[1]} reopened`));
+  assert.match(wa.last(HIMANSHU).body, /Task reopened by Ankit/);
+
+  // And in words, with no quoted message: his lowest still-closed task.
+  await bot.handleMessage(text(OWNER, "Reopen the 1st task which I assigned to Himanshu"));
+  assert.equal((await bot.getTask(his[0])).status, "working");
+  assert.match(wa.last(OWNER).body, new RegExp(`#${his[0]} reopened`));
+});
+
+test("a meeting the cron missed by more than ten minutes gets no late reminder", async () => {
+  const clock = makeClock(); clock.at(16, 13);
+  const { bot, wa } = setup(clock);
+  for (const p of [HIMANSHU, SHALU]) await bot.handleMessage(text(p, "Hi"));
+  await bot.handleMessage(text(OWNER, "set a meeting with Himanshu and Shalu at 4"));
+  const m = (await bot.upcomingMeetings())[0];
+  assert.ok(m.at.startsWith("2026-11-16T16:00"), m.at);
+
+  // The minute cron was down; it comes back 40 minutes after the meeting began.
+  clock.at(16, 16, 40);
+  wa.sent.length = 0;
+  await bot.runDue();
+  assert.equal(wa.sent.filter((s) => /Meeting in 5 minutes/.test(s.body || "")).length, 0);
+  // Closed off so it can never fire later either.
+  assert.equal((await bot.getMeeting(m.id)).reminded, 1);
+});
