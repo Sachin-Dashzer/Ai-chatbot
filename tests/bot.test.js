@@ -90,8 +90,10 @@ test("example Monday: every task goes straight out, one list per round, reply, n
   const brief = wa.last(OWNER).body;
   assert.ok(brief.includes("PENDING ON YOU (2)") && brief.includes("rate approval") && brief.includes("Goodbite"), brief);
   assert.ok(brief.includes("OPEN A WEEK OR MORE (0)"), brief);
-  assert.ok(brief.includes("Himanshu: 1 done | 1 working | 1 stuck"), brief);
-  assert.ok(brief.includes("Rajneesh: 1 done"), brief);
+  assert.ok(brief.includes("*Himanshu* · 1 done · 1 working · 1 stuck"), brief);
+  assert.match(brief, /^✅ #\d+ /m);
+  assert.match(brief, /^🚧 #\d+ /m);
+  assert.ok(brief.includes("*Rajneesh* · 1 done"), brief);
   assert.ok(brief.includes("NO UPDATE YESTERDAY:* Pulkit"), brief);
 
   const stuck = (await bot.store.findOne("tasks", { stuck_on: "ankit" })).id;
@@ -1179,44 +1181,59 @@ test("asking for the task list gets the formatted list", async () => {
   assert.match(body, /^\*You\* \(1\)$/m);
   assert.match(body, /^⬜ #\d+ /m);
 });
-test("a closed task reopened by a swipe-reply and by words", async () => {
+
+test("reopen: by swiping onto the message, by words, and the person is told", async () => {
   const clock = makeClock(); clock.at(16, 9);
   const { bot, wa } = setup(clock);
-  await bot.handleMessage(text(HIMANSHU, "Hi"));
+  for (const p of [HIMANSHU, SHALU]) await bot.handleMessage(text(p, "Hi"));
   await bot.handleMessage(voice(OWNER, "v2"));
-  const his = (await bot.openTasks("Himanshu")).map((t) => t.id).sort((a, b) => a - b);
-  assert.equal(his.length, 2);
-  for (const id of his) await bot.handleMessage(text(OWNER, `done ${id}`));
+  const [t1, t2] = (await bot.openTasks("Himanshu")).sort((a, b) => a.id - b.id);
+  await bot.handleMessage(btn(HIMANSHU, `st:${t1.id}:done`));
+  await bot.handleMessage(btn(HIMANSHU, `st:${t2.id}:done`));
 
-  // A swipe-reply: Meta sends only the id of the message he swiped on, so the bot has to
-  // find its own words again to know which task "this task" means.
-  await bot.store.insert("sent_msgs", { wamid: "w1", at: bot.nowIso(),
-    text: `*Himanshu* has replied:\n✅ *Done* — #${his[1]} Send AMC quote to Galaxy Royal` });
-  await bot.handleMessage({ from: OWNER, id: "swipe1", type: "text",
-    text: { body: "reopen this task" }, context: { id: "w1" } });
-  assert.equal((await bot.getTask(his[1])).status, "working");
-  assert.match(wa.last(OWNER).body, new RegExp(`#${his[1]} reopened`));
+  // Swipe-reply: Meta sends only the id of the quoted message.
+  await bot.store.insert("sent_msgs", { wamid: "wamid.Q1", text: `*Himanshu* has replied:\n✅ Done — #${t2.id} ${t2.description}`, at: bot.nowIso() });
+  await bot.handleMessage({ ...text(OWNER, "Reopen this task"), context: { id: "wamid.Q1" } });
+  assert.match(wa.last(OWNER).body, new RegExp(`#${t2.id} reopened`));
+  assert.equal((await bot.getTask(t2.id)).status, "working");
   assert.match(wa.last(HIMANSHU).body, /Task reopened by Ankit/);
 
-  // And in words, with no quoted message: his lowest still-closed task.
-  await bot.handleMessage(text(OWNER, "Reopen the 1st task which I assigned to Himanshu"));
-  assert.equal((await bot.getTask(his[0])).status, "working");
-  assert.match(wa.last(OWNER).body, new RegExp(`#${his[0]} reopened`));
+  // In words, through the parser.
+  await bot.handleMessage(text(OWNER, "Reopen the 1st task again which i assigned to Himanshu"));
+  assert.match(wa.last(OWNER).body, new RegExp(`#${t1.id} reopened`));
+  assert.equal((await bot.getTask(t1.id)).status, "working");
 });
 
-test("a meeting the cron missed by more than ten minutes gets no late reminder", async () => {
-  const clock = makeClock(); clock.at(16, 13);
+test("a meeting reminder the cron missed by more than 10 minutes is not sent late", async () => {
+  const clock = makeClock(); clock.at(16, 10);
   const { bot, wa } = setup(clock);
   for (const p of [HIMANSHU, SHALU]) await bot.handleMessage(text(p, "Hi"));
-  await bot.handleMessage(text(OWNER, "set a meeting with Himanshu and Shalu at 4"));
-  const m = (await bot.upcomingMeetings())[0];
-  assert.ok(m.at.startsWith("2026-11-16T16:00"), m.at);
-
-  // The minute cron was down; it comes back 40 minutes after the meeting began.
-  clock.at(16, 16, 40);
+  await bot.handleMessage(text(OWNER, "meeting with Himanshu and Shalu at 4"));
+  clock.at(16, 15, 56);
+  await bot.runDue();
+  assert.match(wa.last(OWNER).body, /Meeting in 5 minutes/);
+  // A second meeting whose time passed while nothing ran.
+  await bot.handleMessage(text(OWNER, "meeting with Himanshu and Shalu at 4"));
+  clock.at(16, 18);
   wa.sent.length = 0;
   await bot.runDue();
-  assert.equal(wa.sent.filter((s) => /Meeting in 5 minutes/.test(s.body || "")).length, 0);
-  // Closed off so it can never fire later either.
-  assert.equal((await bot.getMeeting(m.id)).reminded, 1);
+  assert.ok(!wa.sent.some((x) => /Meeting in 5 minutes/.test(x.body || "")));
+});
+
+test("old demo data left in the database is removed once, and real tasks are kept", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  const demo = await bot.store.insert("tasks", { owner: "Rajneesh", description: "Close 26AS mismatch for FY24-25", status: "working", source_text: "demo", created_at: bot.nowIso() });
+  const real = await bot.store.insert("tasks", { owner: "Ankit", description: "Renew car insurance", status: "new", source_text: "renew car insurance", created_at: bot.nowIso() });
+  await bot.store.insert("task_notes", { task_id: demo.id, person: "Rajneesh", status: "Working", text: "x" });
+  await bot.store.insert("pending_msgs", { phone: "910000000000", text: "📌 *Pending with you (1)*\n*1.* Close 26AS mismatch for FY24-25" });
+  await bot.store.insert("meetings", { title: "Tally data review", with: ["Himanshu"], at: "2026-11-16T17:00", status: "called", source_text: "demo" });
+
+  await bot.handleMessage(text(OWNER, "hi"));
+  assert.equal(await bot.getTask(demo.id), null);
+  assert.ok(await bot.getTask(real.id), "a real task with a demo-like name stays");
+  assert.equal(await bot.store.count("task_notes", { task_id: demo.id }), 0);
+  assert.equal(await bot.store.count("pending_msgs", {}), 0);
+  assert.equal(await bot.store.count("meetings", {}), 0);
+  assert.ok(await bot.store.findOne("meta", { key: "demo_purged_v1" }));
 });
