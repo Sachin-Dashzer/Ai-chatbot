@@ -522,8 +522,13 @@ test("cron endpoint: runs a due slot once, ignores off-window, off-day, bad toke
   clock.at(16, 14);                        // more than an hour late: the slot is gone, not resent
   assert.deepEqual((await hit()).ran, []);
 
-  clock.at(22, 12, 5);                     // Sunday, WORK_DAYS is mon-sat
+  clock.at(22, 12, 5);                     // Sunday: the default week is all seven days
+  assert.deepEqual((await hit()).ran, ["pending@12:00"]);
+
+  bot.s.workDays = "mon-sat";              // a deployment that does keep Sunday off still skips it
+  clock.at(22, 12, 6);
   assert.match((await hit()).note, /not a work day/);
+  bot.s.workDays = "sun-sat";
 
   globalThis.__ankitDeskCron = true;       // always-on host: node-cron owns the schedule
   clock.at(17, 12, 5);
