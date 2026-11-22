@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { setup, makeClock, text, voice, VOICE, OWNER, HIMANSHU, SHALU, RAJNEESH, PULKIT, tap, btn } from "./helpers.js";
 import { TEAM } from "../lib/boards.js";
 import { extractJson } from "../lib/ai.js";
-import { cronDays } from "../lib/scheduler.js";
+import { cronDays, isWorkday } from "../lib/scheduler.js";
 import { workDaySet } from "../lib/time.js";
 
 test("example Monday: every task goes straight out, one list per round, reply, nudge, review, brief, unblock", async () => {
@@ -488,6 +488,13 @@ test("helpers: JSON extraction and cron day mapping", () => {
   assert.deepEqual(extractJson("none").tasks, []);
   assert.equal(cronDays("mon-sat"), "1-6");
   assert.equal(cronDays("mon,thu"), "1,4");
+  // The gate /api/cron and /api/health share. "sun-sat" is every day; "mon-sun" is the
+  // range that does not wrap, so it matches nothing at all.
+  assert.equal(isWorkday("sun-sat", "sun"), true);
+  assert.equal(isWorkday("mon-sat", "sun"), false);
+  assert.equal(isWorkday("mon-sat", "mon"), true);
+  assert.equal(isWorkday("mon-sun", "wed"), false);
+  assert.equal(isWorkday("mon,thu", "thu"), true);
   assert.deepEqual([...workDaySet("mon-sat")], ["mon", "tue", "wed", "thu", "fri", "sat"]);
   assert.deepEqual([...workDaySet("mon,thu")], ["mon", "thu"]);
   assert.deepEqual([...workDaySet("sat-tue")], ["sat", "sun", "mon", "tue"]); // a range that wraps the week
@@ -535,6 +542,40 @@ test("cron endpoint: runs a due slot once, ignores off-window, off-day, bad toke
   assert.match((await hit()).note, /in-process scheduler/);
   delete globalThis.__ankitDeskCron;
   delete globalThis.__ankitDesk;
+});
+
+test("health: liveness is public, the scheduler state needs the token", async () => {
+  const clock = makeClock(); clock.at(22, 12);   // Sunday 22 Nov 2026
+  const { bot } = setup(clock);
+  globalThis.__ankitDesk = bot;
+  delete globalThis.__ankitDeskCron;
+  const { GET } = await import("../app/api/health/route.js");
+  const was = process.env.WA_VERIFY_TOKEN;
+  process.env.WA_VERIFY_TOKEN = "t0ken";
+  const get = async (q = "") => (await GET(new Request(`http://x/api/health${q}`))).json();
+
+  // The host's healthcheck gets a bare ok, and the schedule never leaks to it.
+  assert.deepEqual(await get(), { ok: true });
+  assert.deepEqual(await get("?token=wrong"), { ok: true });
+
+  const full = await get("?token=t0ken");
+  assert.equal(full.scheduler, "NOT RUNNING");     // neither node-cron nor a serverless host
+  assert.equal(full.workDays, "sun-sat");
+  assert.equal(full.workdayToday, true);           // Sunday is a work day now
+  assert.equal(full.slots.brief, "19:00");
+  assert.deepEqual(full.cronSlotsToday, []);
+
+  globalThis.__ankitDeskCron = true;               // Railway: node-cron is live in the process
+  assert.match((await get("?token=t0ken")).scheduler, /in-process/);
+
+  bot.s.workDays = "mon-sat";
+  assert.equal((await get("?token=t0ken")).workdayToday, false);
+
+  bot.s.workDays = "sun-sat";
+  delete globalThis.__ankitDeskCron;
+  delete globalThis.__ankitDesk;
+  if (was === undefined) delete process.env.WA_VERIFY_TOKEN;
+  else process.env.WA_VERIFY_TOKEN = was;
 });
 
 test("a failed WhatsApp send never loses the task: the next pending round retries it", async () => {

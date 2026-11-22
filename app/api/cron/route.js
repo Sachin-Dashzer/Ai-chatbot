@@ -6,7 +6,7 @@
 // a job that throws half way is reported in `failed` and logged, and is not retried that day.
 import { getBot } from "../../../lib/runtime.js";
 import { parts } from "../../../lib/time.js";
-import { cronDays } from "../../../lib/scheduler.js";
+import { isWorkday } from "../../../lib/scheduler.js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,16 +15,6 @@ export const maxDuration = 60;
 // A slot still fires if its time passed within this many minutes, so a late cron (or an hourly one)
 // catches up instead of losing the day.
 const WINDOW_MIN = 59;
-const DAY_NUM = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
-
-// ponytail: week-wrapping ranges ("sat-sun") are not handled, exactly like the cron spec node-cron
-// is given. Fine for "mon-sat"; list days individually ("sat,sun") if you ever need the wrap.
-function isWorkday(spec, dayNum) {
-  return cronDays(spec).split(",").some((part) => {
-    const [from, to = from] = part.split("-").map(Number);
-    return dayNum >= from && dayNum <= to;
-  });
-}
 
 export async function GET(req) {
   const bot = getBot();
@@ -43,7 +33,7 @@ export async function GET(req) {
   try { due = await bot.runDue(); } catch (e) { console.error("[ankit-desk] cron due failed", e); }
 
   const now = parts(bot.now(), s.timezone);
-  if (!isWorkday(s.workDays, DAY_NUM[now.weekday])) {
+  if (!isWorkday(s.workDays, now.weekday)) {
     return Response.json({ ran: [], due, note: `not a work day (${s.workDays})` });
   }
 
