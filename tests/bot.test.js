@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { setup, makeClock, text, voice, VOICE, OWNER, HIMANSHU, SHALU, RAJNEESH, PULKIT, tap, btn } from "./helpers.js";
 import { TEAM } from "../lib/boards.js";
 import { extractJson } from "../lib/ai.js";
-import { cronDays, isWorkday } from "../lib/scheduler.js";
+import { cronDays, isWorkday, runSlot } from "../lib/scheduler.js";
 import { workDaySet } from "../lib/time.js";
 
 test("example Monday: every task goes straight out, one list per round, reply, nudge, review, brief, unblock", async () => {
@@ -544,6 +544,22 @@ test("cron endpoint: runs a due slot once, ignores off-window, off-day, bad toke
   delete globalThis.__ankitDesk;
 });
 
+test("node-cron claims and records each slot, so a run leaves a trace either way", async () => {
+  const clock = makeClock(); clock.at(22, 19);
+  const { bot } = setup(clock);
+  let ran = 0;
+  assert.equal(await runSlot(bot, "brief", "19:00", () => { ran++; }), "ran");
+  // A restart, or a second process during a rolling deploy, must not send it twice.
+  assert.equal(await runSlot(bot, "brief", "19:00", () => { ran++; }), "already ran");
+  assert.equal(ran, 1);
+  // A slot that threw keeps its row and carries why: silence and failure must not look alike.
+  assert.equal(await runSlot(bot, "nudge", "18:00", () => { throw new Error("boom"); }), "failed");
+
+  const rows = await bot.store.find("job_runs", { date: bot.today() }, { sort: { id: 1 } });
+  assert.deepEqual(rows.map((r) => r.key), ["brief@19:00", "nudge@18:00"]);
+  assert.equal(rows[1].failed, "boom");
+});
+
 test("health: liveness is public, the scheduler state needs the token", async () => {
   const clock = makeClock(); clock.at(22, 12);   // Sunday 22 Nov 2026
   const { bot } = setup(clock);
@@ -563,7 +579,7 @@ test("health: liveness is public, the scheduler state needs the token", async ()
   assert.equal(full.workDays, "sun-sat");
   assert.equal(full.workdayToday, true);           // Sunday is a work day now
   assert.equal(full.slots.brief, "19:00");
-  assert.deepEqual(full.cronSlotsToday, []);
+  assert.deepEqual(full.slotsToday, []);
 
   globalThis.__ankitDeskCron = true;               // Railway: node-cron is live in the process
   assert.match((await get("?token=t0ken")).scheduler, /in-process/);

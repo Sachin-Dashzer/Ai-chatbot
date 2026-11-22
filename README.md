@@ -286,7 +286,7 @@ Trigger jobs instantly: `curl -X POST "BASE_URL/api/admin/run/{pending|review|nu
 | Display name / template rejected | Use the owner's name; reword the template, keep its name |
 | Webhook won't verify | Token must match `WA_VERIFY_TOKEN`; URL must be https and end in `/api/webhook` |
 | Bot silent | Check Railway logs; sender's number must be in people.yaml (unknown numbers are ignored) |
-| Nothing scheduled arrived | `GET BASE_URL/api/health?token=WA_VERIFY_TOKEN` — it names the live scheduler (`in-process (node-cron)`, `external cron must hit /api/cron`, or `NOT RUNNING`), the schedule it is running, whether today is a work day at all (`WORK_DAYS=sun-sat` is all seven; `mon-sun` is a non-wrapping range and matches **no** days), the store, and the slots `/api/cron` has claimed today. Without the token it answers `{"ok":true}` only, so it stays usable as the host's healthcheck |
+| Nothing scheduled arrived | `GET BASE_URL/api/health?token=WA_VERIFY_TOKEN` — it names the live scheduler (`in-process (node-cron)`, `external cron must hit /api/cron`, or `NOT RUNNING`), the schedule it is running, whether today is a work day at all (`WORK_DAYS=sun-sat` is all seven; `mon-sun` is a non-wrapping range and matches **no** days), the store, and the every slot that has run today, from either path, with the reason if one failed. Without the token it answers `{"ok":true}` only, so it stays usable as the host's healthcheck |
 | Wrong person | `assign 12 Narendra` (reassigning delivers it to the new person at once) |
 | Same task twice | Bot replies "Already open" |
 | Ticked by mistake | `reopen 12` |

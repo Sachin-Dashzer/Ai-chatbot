@@ -39,10 +39,10 @@ export async function GET(req) {
     out.workdayToday = isWorkday(s.workDays, now.weekday);
     out.slots = { pending: s.pendingTimes, review: s.reviewTime, nudge: s.nudgeTime, brief: s.briefTime };
     out.store = s.store;
-    // Slots claimed by /api/cron today. node-cron does not claim them, so on an always-on
-    // host this is empty by design — `scheduler` is the signal there, not this.
+    // Every slot that has run today, from either path: node-cron and /api/cron claim the same
+    // row. A slot that threw keeps its row and carries why, so a failure never reads as silence.
     const runs = await bot.store.find("job_runs", { date: bot.today() }, { sort: { id: 1 } });
-    out.cronSlotsToday = runs.map((r) => `${r.key} at ${r.at.slice(11, 16)}`);
+    out.slotsToday = runs.map((r) => `${r.key} at ${r.at.slice(11, 16)}${r.failed ? ` — FAILED: ${r.failed}` : ""}`);
   } catch (e) {
     // A bot that cannot even be built is exactly what this endpoint exists to report.
     out.ok = false;
