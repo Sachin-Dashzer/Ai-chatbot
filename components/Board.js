@@ -146,6 +146,11 @@ export function TeamBoard({ data }) {
 
 // ── Master board ─────────────────────────────────────────────────────────
 function masterFinding(data) {
+  if (data.tab === "categories") {
+    const c = data.counts || {};
+    const open = data.stats?.open || 0;
+    return `${plural(open, "open task")}: 📅 ${c.meetings || 0} · 💰 ${c.payment || 0} · 🙋 ${c.me || 0} · 👥 ${c.team || 0} · 🗂 ${c.other || 0}. Send any code (like T12) on WhatsApp to act on it.`;
+  }
   if (data.tab === "mine") {
     return data.score ? `${data.score}.` : "You have no tasks of your own.";
   }
@@ -279,6 +284,7 @@ export function MasterBoard({ data, boardKey }) {
                 view={data.view}
                 hideStatus={s.hideStatus}
                 hideOwner={data.tab === "mine"}
+                hideCategory={data.tab === "categories"}
               />
             </Section>
           ))}

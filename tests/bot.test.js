@@ -88,11 +88,19 @@ test("example Monday: every task goes straight out, one list per round, reply, n
   clock.at(17, 8, 30);
   await bot.runBrief();
   const brief = wa.last(OWNER).body;
-  assert.ok(brief.includes("PENDING ON YOU (2)") && brief.includes("rate approval") && brief.includes("Goodbite"), brief);
-  assert.ok(brief.includes("OPEN A WEEK OR MORE (0)"), brief);
-  assert.ok(brief.includes("*Himanshu* · 1 done · 1 working · 1 stuck"), brief);
-  assert.match(brief, /^✅ #\d+ /m);
-  assert.match(brief, /^🚧 #\d+ /m);
+  // Five shelves, in order, each task under its code.
+  assert.match(brief, /📅 0 {2}· {2}💰 1 {2}· {2}🙋 2 {2}· {2}👥 3 {2}· {2}🗂 0/);
+  assert.ok(brief.includes("OPEN TASKS ON ME (2)") && brief.includes("rate approval") && brief.includes("Goodbite"), brief);
+  // The invoice and the collections are money, so they sit on Payment and recovery.
+  assert.match(brief, /PAYMENT AND RECOVERY \(1\)\*\n⏳ \*P\d+\* Match Oct collections vs billing · Shalu/);
+  assert.match(brief, /^✅ \*P\d+\* Send Galaxy Royal final invoice · Himanshu$/m);
+  assert.ok(brief.includes("*Himanshu* · 1 working · 1 stuck"), brief);
+  assert.match(brief, /^🚧 \*T\d+\* /m);
+  assert.match(brief, /^✅ \*T\d+\* Oct GSTR-2B/m);
+  assert.ok(brief.indexOf("MEETINGS AHEAD") < brief.indexOf("PAYMENT AND RECOVERY") &&
+    brief.indexOf("PAYMENT AND RECOVERY") < brief.indexOf("OPEN TASKS ON ME") &&
+    brief.indexOf("OPEN TASKS ON ME") < brief.indexOf("OPEN TASKS ON TEAM") &&
+    brief.indexOf("OPEN TASKS ON TEAM") < brief.indexOf("OTHER TASKS"), brief);
   assert.ok(brief.includes("*Rajneesh* · 1 done"), brief);
   assert.ok(brief.includes("NO UPDATE YESTERDAY:* Pulkit"), brief);
 
@@ -182,7 +190,7 @@ test("buttons: a tap is a status update, and Remark takes the words that follow"
   await bot.handleMessage(btn(HIMANSHU, `st:${t.id}:remark`));
   assert.match(wa.last(HIMANSHU).body, /Send your remark now/);
   await bot.handleMessage(text(HIMANSHU, "noted, client ne Thursday maanga hai"));
-  assert.match(wa.last(OWNER).body, /Himanshu\* on #\d+/);
+  assert.match(wa.last(OWNER).body, /Himanshu\* on [TAPO]\d+/);
   assert.match(wa.last(OWNER).body, /Thursday maanga hai/);
   assert.match((await bot.getTask(t.id)).note, /Thursday maanga hai/);
   const notes = await bot.store.find("task_notes", { task_id: t.id });
@@ -227,7 +235,7 @@ test("6 PM overview: everything assigned today, by person and status", async () 
   assert.match(o, /\*Shalu\* · 1 task/);
   assert.match(o, /Score: 1 of 3 done/);
   assert.match(o, /1 working/);
-  assert.match(o, /No word yet on: #\d+ Himanshu/);
+  assert.match(o, /No word yet on: [TAPO]\d+ Himanshu/);
 
   // And it is the tail of the 6 PM message, whether or not Ankit has tasks of his own.
   clock.at(16, 18);
@@ -370,7 +378,7 @@ test("Ankit's own day: score, natural update, list-number reply, yesterday in br
   clock.at(16, 18);
   await bot.runReview();
   const msg = wa.last(OWNER).body;
-  assert.ok(msg.includes("1 of 3 done") && msg.includes("✓ #") && msg.includes("1. #") && msg.includes("2. #"));
+  assert.ok(msg.includes("1 of 3 done") && /✓ A\d+/.test(msg) && msg.includes("1. #") && msg.includes("2. #"));
   await bot.handleMessage(text(OWNER, "1 done"));
   assert.match(wa.last(OWNER).body, /Today: 2 of 3 done/);
   clock.at(17, 8, 30);
@@ -433,7 +441,7 @@ test("boards and safeguards: privacy, attention, tick, newlink, assign, duplicat
   assert.equal((await bot.getTask(tid)).status, "working");
 
   const csv = await bot.boards.exportCsv();
-  assert.ok(csv.startsWith("id,owner,description,status") && csv.includes("Buy mediclaim"));
+  assert.ok(csv.startsWith("code,id,category,owner,description,status") && csv.includes("Buy mediclaim"));
   assert.ok(!csv.includes("priority"));
 });
 
@@ -1024,7 +1032,7 @@ test("Love keeps him in the loop: his own list at noon, every tap as it happens,
   const open = (await bot.openTasks("Himanshu"))[0];
   await bot.handleMessage(btn(HIMANSHU, `st:${open.id}:done`));
   assert.match(wa.last(OWNER).body, /\*Himanshu\* has replied/);
-  assert.match(wa.last(OWNER).body, new RegExp(`#${open.id} ${open.description}`));
+  assert.match(wa.last(OWNER).body, new RegExp(`[TAPO]${open.id} ${open.description}`));
 
   // So does a status he typed instead of tapping.
   await bot.handleMessage(text(SHALU, "1 done"));
@@ -1043,7 +1051,7 @@ test("Love keeps him in the loop: his own list at noon, every tap as it happens,
   clock.at(16, 19);
   await bot.runBrief();
   const brief = wa.last(OWNER).body;
-  assert.match(brief, /TOMORROW/);
+  assert.match(brief, /Tomorrow, 04:00 PM · \*M\d+\*/);
   assert.match(brief, /Tally data review/);
 });
 
@@ -1178,8 +1186,9 @@ test("asking for the task list gets the formatted list", async () => {
   await bot.handleMessage(text(OWNER, "Provide list and status of all task"));
   const body = wa.last(OWNER).body;
   assert.match(body, /Open tasks \(5\)/);
-  assert.match(body, /^\*You\* \(1\)$/m);
-  assert.match(body, /^⬜ #\d+ /m);
+  assert.match(body, /^🙋 \*Open tasks on me\* \(1\)$/m);
+  assert.match(body, /^👥 \*Open tasks on team\* \(\d+\)$/m);
+  assert.match(body, /^⬜ \*[TAPO]\d+\* /m);
 });
 
 test("reopen: by swiping onto the message, by words, and the person is told", async () => {
@@ -1194,13 +1203,13 @@ test("reopen: by swiping onto the message, by words, and the person is told", as
   // Swipe-reply: Meta sends only the id of the quoted message.
   await bot.store.insert("sent_msgs", { wamid: "wamid.Q1", text: `*Himanshu* has replied:\n✅ Done — #${t2.id} ${t2.description}`, at: bot.nowIso() });
   await bot.handleMessage({ ...text(OWNER, "Reopen this task"), context: { id: "wamid.Q1" } });
-  assert.match(wa.last(OWNER).body, new RegExp(`#${t2.id} reopened`));
+  assert.match(wa.last(OWNER).body, new RegExp(`[TAPO]${t2.id} reopened`));
   assert.equal((await bot.getTask(t2.id)).status, "working");
   assert.match(wa.last(HIMANSHU).body, /Task reopened by Ankit/);
 
   // In words, through the parser.
   await bot.handleMessage(text(OWNER, "Reopen the 1st task again which i assigned to Himanshu"));
-  assert.match(wa.last(OWNER).body, new RegExp(`#${t1.id} reopened`));
+  assert.match(wa.last(OWNER).body, new RegExp(`[TAPO]${t1.id} reopened`));
   assert.equal((await bot.getTask(t1.id)).status, "working");
 });
 
@@ -1236,4 +1245,77 @@ test("old demo data left in the database is removed once, and real tasks are kep
   assert.equal(await bot.store.count("pending_msgs", {}), 0);
   assert.equal(await bot.store.count("meetings", {}), 0);
   assert.ok(await bot.store.findOne("meta", { key: "demo_purged_v1" }));
+});
+
+test("categories: every task lands on a shelf and gets a code", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  for (const p of [HIMANSHU, SHALU]) await bot.handleMessage(text(p, "Hi"));
+  await bot.handleMessage(voice(OWNER, "v1"));            // Galaxy Royal final invoice → payment
+  await bot.handleMessage(voice(OWNER, "v2"));
+  const all = await bot.openTasks();
+  const invoice = all.find((t) => /invoice/i.test(t.description));
+  const visit = all.find((t) => /site visit/i.test(t.description));
+  const mine = all.find((t) => t.owner === "Ankit");
+  assert.equal(bot.code(invoice), `P${invoice.id}`);
+  assert.equal(bot.code(visit), `T${visit.id}`);
+  assert.equal(bot.code(mine), `A${mine.id}`);
+  assert.match(wa.to(OWNER).find((m) => /invoice/i.test(m.body || "") && /Assigned/.test(m.body)).body,
+    new RegExp(`\\*P${invoice.id}\\* · Himanshu · 💰 Payment and recovery`));
+
+  // Moving a task to another shelf changes its letter; the old code still finds it.
+  await bot.handleMessage(text(OWNER, `T${visit.id} other`));
+  assert.match(wa.last(OWNER).body, new RegExp(`O${visit.id}\\* moved to \\*Other tasks`));
+  await bot.handleMessage(text(OWNER, `T${visit.id} work`));
+  assert.equal(bot.code(await bot.getTask(visit.id)), `T${visit.id}`);
+
+  const list = (await bot.buildList());
+  assert.ok(list.indexOf("💰 *Payment and recovery*") < list.indexOf("🙋 *Open tasks on me*"), list);
+  assert.ok(list.indexOf("🙋 *Open tasks on me*") < list.indexOf("👥 *Open tasks on team*"), list);
+});
+
+test("task codes: info, done, several at once, due, reassign, note, rename, meeting codes", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  for (const p of [HIMANSHU, SHALU]) await bot.handleMessage(text(p, "Hi"));
+  await bot.handleMessage(voice(OWNER, "v2"));
+  const [a, b] = (await bot.openTasks("Himanshu")).sort((x, y) => x.id - y.id);
+  const s = (await bot.openTasks("Shalu"))[0];
+  const A = bot.code(a), B = bot.code(b), S = bot.code(s);
+
+  await bot.handleMessage(text(OWNER, A));
+  assert.match(wa.last(OWNER).body, new RegExp(`^\\*${A}\\* · Himanshu`));
+  assert.match(wa.last(OWNER).body, /Open tasks on team · opened/);
+
+  await bot.handleMessage(text(OWNER, `${A} due 5 pm`));
+  assert.ok((await bot.getTask(a.id)).due_at.startsWith("2026-11-16T17:00"));
+  assert.match(wa.last(OWNER).body, /due Today, 05:00 PM/);
+
+  await bot.handleMessage(text(OWNER, `${A} note please send it by evening`));
+  assert.match(wa.last(HIMANSHU).body, /Ankit on #\d+[\s\S]*please send it by evening/);
+
+  await bot.handleMessage(text(OWNER, `${A} rename Fix the Sector 76 visit for Wednesday`));
+  assert.equal((await bot.getTask(a.id)).description, "Fix the Sector 76 visit for Wednesday");
+
+  await bot.handleMessage(text(OWNER, `${A} to Shalu`));
+  assert.equal((await bot.getTask(a.id)).owner, "Shalu");
+
+  await bot.handleMessage(text(OWNER, `done ${B} ${S}`));
+  assert.equal((await bot.getTask(b.id)).status, "done");
+  assert.equal((await bot.getTask(s.id)).status, "done");
+  assert.match(wa.last(OWNER).body, new RegExp(`${B}\\* marked done[\\s\\S]*${S}\\* marked done`));
+
+  await bot.handleMessage(text(OWNER, `${B} reopen`));
+  assert.equal((await bot.getTask(b.id)).status, "working");
+
+  // A code inside an ordinary sentence is left to the parser, and "12 done" is not a code.
+  assert.equal(await bot.codeCommand(`${A} send it to the client by evening`), false);
+  assert.equal(await bot.codeCommand("12 done"), false);
+
+  await bot.handleMessage(text(OWNER, "meeting with Himanshu and Shalu at 4"));
+  const m = (await bot.upcomingMeetings())[0];
+  await bot.handleMessage(text(OWNER, `M${m.id}`));
+  assert.match(wa.last(OWNER).body, new RegExp(`📅 \\*M${m.id}\\*`));
+  await bot.handleMessage(text(OWNER, `M${m.id} cancel`));
+  assert.equal((await bot.upcomingMeetings()).length, 0);
 });

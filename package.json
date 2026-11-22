@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
     "test": "node --test tests/bot.test.js",
+    "simulate": "node --env-file-if-exists=.env scripts/simulate.mjs",
     "templates": "node scripts/create-templates.js",
     "backfill": "node --env-file-if-exists=.env scripts/backfill-messages.js",
     "reset-db": "node --env-file-if-exists=.env scripts/reset-db.js"

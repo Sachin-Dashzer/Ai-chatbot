@@ -56,6 +56,33 @@
         ],
         "createdAt": "2026-11-20T03:07:05.674Z",
         "reason": "model: same scope and same reason as the design-system-font ignore. These fixtures depict the rejected directions, so their palettes are deliberately off-system - the canon card's #2563eb is the category default it exists to show. Repainting them in the shipped palette would erase the comparison the user chose from."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "roboto",
+        "files": [
+          "simulation-report.html"
+        ],
+        "createdAt": "2026-11-22T05:15:50.629Z",
+        "reason": "generated simulation report reproduces WhatsApp's own UI (Roboto is WhatsApp's font); gitignored test output, not product UI"
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "simulation-report.html"
+        ],
+        "createdAt": "2026-11-22T05:15:50.805Z",
+        "reason": "#efeae2 is WhatsApp's real chat background, copied deliberately so messages render as they look on the phone"
+      },
+      {
+        "rule": "low-contrast",
+        "value": "*",
+        "files": [
+          "simulation-report.html"
+        ],
+        "createdAt": "2026-11-22T05:15:50.993Z",
+        "reason": "muted timestamp/meta grays are WhatsApp's own values (#667781, #8696a0), reproduced on purpose in a generated report"
       }
     ]
   }

@@ -103,6 +103,8 @@ export default function TaskCard({
   // A column that holds the same value on every row is a dead column: on
   // Ankit's own board every task is his, so the owner slot goes.
   hideOwner = false,
+  // On the Categories tab the heading already names the shelf.
+  hideCategory = false,
   ownerView = Boolean(boardKey),
 }) {
   const master = Boolean(boardKey);
@@ -113,7 +115,10 @@ export default function TaskCard({
 
   return (
     <div className="flex items-start gap-3 border-b border-rule py-3 last:border-0">
-      {master && !done && (
+      {/* A meeting has no tick (it is not closed from here); the gap keeps its text on the
+          same left edge as the tasks around it. */}
+      {master && c.isMeeting && <span aria-hidden className="h-[22px] w-[22px] flex-none" />}
+      {master && !done && !c.isMeeting && (
         <ActionForm
           boardKey={boardKey}
           tab={tab}
@@ -138,7 +143,7 @@ export default function TaskCard({
           <div className="flex items-start justify-between gap-3">
             <p className={`min-w-0 text-body ${done ? "struck text-muted" : "text-ink"}`}>
               {/* taste-skill-ignore: a task id, which is an identifier */}
-              <span className="font-narrow tabular text-meta text-faint">#{c.id}</span>{" "}
+              <span className="font-narrow tabular text-meta font-semibold text-furniture" title="Send this code on WhatsApp to act on it">{c.code || `#${c.id}`}</span>{" "}
               {c.description}
             </p>
             {!compact && <span className="flex-none lg:hidden">{mark || age}</span>}
@@ -148,6 +153,7 @@ export default function TaskCard({
               and the words that came back. */}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
             {!hideOwner && <span className="furniture text-meta">{who}</span>}
+            {!hideCategory && c.categoryLabel && <span className="text-meta text-faint">{c.categoryLabel}</span>}
             {c.due && !done && (
               <Tag tone="warning" title="the reminder goes out 5 minutes before this">
                 {c.due}

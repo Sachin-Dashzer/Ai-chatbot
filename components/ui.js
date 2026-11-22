@@ -36,6 +36,8 @@ export const Icon = {
   ),
   clock: (p) => <svg {...S} {...p}><circle cx="8" cy="8" r="6.25" /><path d="M8 4.5V8l2.25 1.5" /></svg>,
   flag: (p) => <svg {...S} {...p}><path d="M3.75 14.5V2.25h8.5l-2 3 2 3h-8.5" /></svg>,
+  // Four shelves: the Categories tab.
+  grid: (p) => <svg {...S} {...p}><path d="M2.5 2.5h4.5v4.5h-4.5zM9 2.5h4.5v4.5H9zM2.5 9h4.5v4.5h-4.5zM9 9h4.5v4.5H9z" /></svg>,
   home: (p) => <svg {...S} {...p}><path d="M2.5 7L8 2.5 13.5 7v6.5h-11z" /></svg>,
   inbox: (p) => (
     <svg {...S} {...p}>
