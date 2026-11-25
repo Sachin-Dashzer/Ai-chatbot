@@ -1381,3 +1381,29 @@ test("task codes: info, done, several at once, due, reassign, note, rename, meet
   await bot.handleMessage(text(OWNER, `M${m.id} cancel`));
   assert.equal((await bot.upcomingMeetings()).length, 0);
 });
+
+test("the evening reminder carries the work itself, numbered the way the list numbered it", async () => {
+  const clock = makeClock(); clock.at(16, 9);
+  const { bot, wa } = setup(clock);
+  await bot.handleMessage(text(HIMANSHU, "Hi"));
+
+  clock.at(16, 11, 30);
+  await bot.handleMessage(voice(OWNER, "v2"));
+  clock.at(16, 11, 59);
+  await bot.runPending();
+  const list = wa.last(HIMANSHU).body;
+  assert.doesNotMatch(list, /Reply in one message/);   // the rounds stay an announcement
+
+  clock.at(16, 19);
+  await bot.runNudge();
+  const nudge = wa.last(HIMANSHU).body;
+  const items = await bot.checkinList("Himanshu");
+  assert.ok(items.length);
+  // Not a count to go and look up: every job named, under the number the reply is read with.
+  for (const [i, t] of items) assert.ok(nudge.includes(`*${i}.* ${t.description}`), nudge);
+  assert.match(nudge, /Reply in one message/);
+  assert.doesNotMatch(nudge, /still need today's status/);
+
+  await bot.handleMessage(text(HIMANSHU, "1 done"));
+  assert.equal((await bot.getTask(items[0][1].id)).status, "done");
+});
