@@ -1407,3 +1407,31 @@ test("the evening reminder carries the work itself, numbered the way the list nu
   await bot.handleMessage(text(HIMANSHU, "1 done"));
   assert.equal((await bot.getTask(items[0][1].id)).status, "done");
 });
+
+test("a new contact is added the way it is dictated, and a task reaches them", async () => {
+  const clock = makeClock(); clock.at(16, 10);
+  const { bot, wa } = setup(clock);
+
+  // The command, a number he spaced, a comma after the name, filler words, and the whole thing
+  // said as a sentence — all of it is one contact.
+  for (const line of ["Rahul ko add karo, number 98123 45678",
+                      "add new employee Vikas Sharma, +91 9812345679"]) {
+    await bot.handleMessage(text(OWNER, line));
+    assert.match(wa.last(OWNER).body, /added/, line);
+  }
+  assert.equal(bot.d.byName("Rahul").phone, "919812345678");
+  assert.equal(bot.d.byName("Vikas Sharma").phone, "919812345679");
+
+  // The point of adding them: a task reaches them.
+  await bot.createTasks({ tasks: [{ owner: "Rahul", task: "Collect the Saltoris rejoinder" }] }, "");
+  assert.ok(wa.to("919812345678").length, "nothing reached the new number");
+
+  // What trails the number is what they handle, not more of the name.
+  assert.match(await bot.team.handle("add Mohit 9812345670 he does the GST filings"), /\*Mohit\* added/);
+  assert.match(bot.d.byName("Mohit").does, /GST filings/);
+
+  // A sentence that is work and not a contact is left to the parser, and a bad number still
+  // earns its own reason.
+  assert.equal(await bot.team.handle("Pulkit ko bolo client ka number 9812345678 save karo"), null);
+  assert.match(await bot.team.handle("add Sunil 98123"), /is 5 digits/);
+});
